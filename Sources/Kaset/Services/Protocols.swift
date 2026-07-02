@@ -459,6 +459,9 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     /// Removes every queue entry whose song matches one of the given video IDs.
     func removeFromQueue(videoIds: Set<String>)
 
+    /// Removes later duplicate songs from the queue, keeping the first occurrence of each video ID.
+    func removeDuplicateQueueEntries()
+
     // MARK: - Like/Library Actions
 
     /// Likes the current track.

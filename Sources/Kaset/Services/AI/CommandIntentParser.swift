@@ -56,6 +56,10 @@ struct CommandIntentParser {
             return .queueRadio
         }
 
+        if Self.removeDuplicatesCommands.contains(normalized) {
+            return .removeDuplicates
+        }
+
         return nil
     }
 
@@ -69,6 +73,10 @@ struct CommandIntentParser {
 
         if self.referencesCurrentTrackRadio(lowered) {
             return .queueRadio
+        }
+
+        if lowered.contains("duplicate") {
+            return .removeDuplicates
         }
 
         if lowered.hasPrefix("remove ") || lowered.hasPrefix("delete ") || lowered.hasPrefix("take out ") {
@@ -392,6 +400,18 @@ struct CommandIntentParser {
         "shuffle queue",
         "shuffle my queue",
         "shuffle the queue",
+    ]
+
+    private static let removeDuplicatesCommands: Set<String> = [
+        "remove duplicates",
+        "remove duplicates from queue",
+        "remove duplicates from the queue",
+        "remove the duplicates",
+        "remove duplicate songs",
+        "delete duplicates",
+        "dedupe queue",
+        "dedupe the queue",
+        "deduplicate queue",
     ]
 
     private static let radioCommands: Set<String> = [

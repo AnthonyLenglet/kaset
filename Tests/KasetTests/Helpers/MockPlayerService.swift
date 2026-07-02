@@ -40,6 +40,7 @@ final class MockPlayerService: PlayerServiceProtocol {
     private(set) var appendToQueueCallCount = 0
     private(set) var removeFromQueueCallCount = 0
     private(set) var removedVideoIds: Set<String> = []
+    private(set) var removeDuplicateQueueEntriesCallCount = 0
     private(set) var playWithMixCallCount = 0
     private(set) var playQueueCallCount = 0
     private(set) var likeCallCount = 0
@@ -204,6 +205,13 @@ final class MockPlayerService: PlayerServiceProtocol {
         self.removeFromQueueCallCount += 1
         self.removedVideoIds = videoIds
         self.queue.removeAll { videoIds.contains($0.videoId) }
+        self.currentIndex = min(self.currentIndex, max(0, self.queue.count - 1))
+    }
+
+    func removeDuplicateQueueEntries() {
+        self.removeDuplicateQueueEntriesCallCount += 1
+        var seen = Set<String>()
+        self.queue = self.queue.filter { seen.insert($0.videoId).inserted }
         self.currentIndex = min(self.currentIndex, max(0, self.queue.count - 1))
     }
 

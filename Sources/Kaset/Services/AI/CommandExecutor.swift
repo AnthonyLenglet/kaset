@@ -15,6 +15,7 @@ struct CommandExecutor {
         case toggleShuffle
         case queueRadio
         case removeFromQueue(query: String)
+        case removeDuplicates
         case playSearch(query: String, description: String)
         case queueSearch(query: String, description: String)
         case openSearch(query: String)
@@ -114,6 +115,17 @@ struct CommandExecutor {
 
         case let .removeFromQueue(query):
             return self.removeMatchingFromQueue(query: query)
+
+        case .removeDuplicates:
+            let before = self.playerService.queue.count
+            self.playerService.removeDuplicateQueueEntries()
+            let removed = before - self.playerService.queue.count
+            guard removed > 0 else {
+                return .error(String(localized: "No duplicates in the queue"))
+            }
+            HapticService.toggle()
+            let songLabel = removed == 1 ? "duplicate" : "duplicates"
+            return .result("Removed \(removed) \(songLabel)")
 
         case let .playSearch(query, description):
             return await self.playSearchResult(query: query, description: description)

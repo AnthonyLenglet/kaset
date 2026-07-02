@@ -12,7 +12,7 @@ import FoundationModels
 @Generable
 struct CommandBarParseResult: Equatable {
     /// High-level action the user wants to perform.
-    @Guide(description: "Action: play, queue, radio, search, inspectQueue, shuffle, clearQueue, removeFromQueue, like, dislike, skip, previous, pause, or resume.")
+    @Guide(description: "Action: play, queue, radio, search, inspectQueue, shuffle, clearQueue, removeFromQueue, removeDuplicates, like, dislike, skip, previous, pause, or resume.")
     let action: CommandBarAction
 
     /// Essential search words for content requests.
@@ -63,6 +63,8 @@ struct CommandBarParseResult: Equatable {
             .clearQueue
         case .removeFromQueue:
             .removeFromQueue(query: self.subject)
+        case .removeDuplicates:
+            .removeDuplicates
         case .radio:
             .queueRadio
         case .like:
@@ -120,7 +122,7 @@ struct CommandBarParseResult: Equatable {
             .pause
         case .resume:
             .resume
-        case .radio, .inspectQueue, .clearQueue, .removeFromQueue:
+        case .radio, .inspectQueue, .clearQueue, .removeFromQueue, .removeDuplicates:
             nil
         }
     }
@@ -139,6 +141,7 @@ enum CommandBarAction: String, CaseIterable {
     case shuffle
     case clearQueue
     case removeFromQueue
+    case removeDuplicates
     case like
     case dislike
     case skip
