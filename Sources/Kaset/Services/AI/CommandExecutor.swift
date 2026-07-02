@@ -367,6 +367,13 @@ struct CommandExecutor {
             }
             return await self.playSearchResult(query: query, description: description)
 
+        case .artistMix:
+            if let outcome = await self.playArtistMix(intent: intent) {
+                return outcome
+            }
+            self.logger.info("No artist mix available, falling back to search")
+            return await self.playSearchResult(query: query, description: description)
+
         case .search:
             return await self.playSearchResult(query: query, description: description)
         }
@@ -405,8 +412,79 @@ struct CommandExecutor {
 
             return await self.queueSearchResult(query: query, description: description)
 
+        case .artistMix:
+            if let outcome = await self.queueArtistMix(intent: intent) {
+                return outcome
+            }
+            self.logger.info("No artist mix available, falling back to search")
+            return await self.queueSearchResult(query: query, description: description)
+
         case .search:
             return await self.queueSearchResult(query: query, description: description)
+        }
+    }
+
+    private func resolveArtistMix(artistName: String) async -> (playlistId: String, startVideoId: String?, name: String)? {
+        do {
+            let response = try await self.client.searchArtists(query: artistName)
+            guard let artist = response.artists.first else {
+                self.logger.info("No artist found for \(artistName)")
+                return nil
+            }
+
+            let detail = try await self.client.getArtist(id: artist.id)
+            guard let playlistId = detail.mixPlaylistId else {
+                self.logger.info("No mix playlist for artist \(artist.name)")
+                return nil
+            }
+
+            return (playlistId, detail.mixVideoId, artist.name)
+        } catch {
+            self.logger.error("Artist mix resolution failed: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    private func playArtistMix(intent: MusicIntent) async -> Outcome? {
+        guard let mix = await self.resolveArtistMix(artistName: intent.artist) else {
+            return nil
+        }
+
+        // Fall back to search (return nil) if the mix was empty or failed to load, so the
+        // caller doesn't report "Playing X mix" when nothing actually started.
+        guard await self.playerService.playWithMix(playlistId: mix.playlistId, startVideoId: mix.startVideoId) else {
+            return nil
+        }
+        return .result("Playing \(mix.name) mix")
+    }
+
+    private func queueArtistMix(intent: MusicIntent) async -> Outcome? {
+        guard let mix = await self.resolveArtistMix(artistName: intent.artist) else {
+            return nil
+        }
+
+        do {
+            let result = try await self.client.getMixQueue(playlistId: mix.playlistId, startVideoId: mix.startVideoId)
+            guard !result.songs.isEmpty else {
+                return nil
+            }
+
+            if self.playerService.queue.isEmpty {
+                await self.playerService.playQueue(result.songs, startingAt: 0)
+                return .result("Playing \(mix.name) mix")
+            }
+
+            let existingIds = Set(self.playerService.queue.map(\.videoId))
+            let newSongs = result.songs.filter { !existingIds.contains($0.videoId) }
+            guard !newSongs.isEmpty else {
+                return nil
+            }
+
+            self.playerService.appendToQueue(newSongs)
+            return .result("Added \(mix.name) mix to queue")
+        } catch {
+            self.logger.error("Artist mix queue failed: \(error.localizedDescription)")
+            return nil
         }
     }
 

@@ -40,6 +40,7 @@ final class MockPlayerService: PlayerServiceProtocol {
     private(set) var appendToQueueCallCount = 0
     private(set) var removeFromQueueCallCount = 0
     private(set) var removedVideoIds: Set<String> = []
+    private(set) var playWithMixCallCount = 0
     private(set) var playQueueCallCount = 0
     private(set) var likeCallCount = 0
     private(set) var dislikeCallCount = 0
@@ -170,7 +171,13 @@ final class MockPlayerService: PlayerServiceProtocol {
         self.state = .playing
     }
 
-    func playWithMix(playlistId _: String, startVideoId _: String?) async {}
+    var playWithMixReturnValue = true
+
+    @discardableResult
+    func playWithMix(playlistId _: String, startVideoId _: String?) async -> Bool {
+        self.playWithMixCallCount += 1
+        return self.playWithMixReturnValue
+    }
 
     func clearQueue() {
         self.clearQueueCallCount += 1

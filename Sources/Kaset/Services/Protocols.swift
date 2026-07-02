@@ -443,7 +443,9 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     /// - Parameters:
     ///   - playlistId: The mix playlist ID (e.g., "RDEM...")
     ///   - startVideoId: Optional starting video ID
-    func playWithMix(playlistId: String, startVideoId: String?) async
+    /// - Returns: `true` if the mix loaded and playback started, `false` if it was empty or failed.
+    @discardableResult
+    func playWithMix(playlistId: String, startVideoId: String?) async -> Bool
 
     /// Clears the queue while preserving the current track when possible.
     func clearQueue()

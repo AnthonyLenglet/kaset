@@ -59,14 +59,15 @@ extension PlayerService {
     /// - Parameters:
     ///   - playlistId: The mix playlist ID (e.g., "RDEM..." for artist mix)
     ///   - startVideoId: Optional video ID to start with. If nil, API picks a random starting point.
-    func playWithMix(playlistId: String, startVideoId: String?) async {
+    @discardableResult
+    func playWithMix(playlistId: String, startVideoId: String?) async -> Bool {
         self.logger.info("Playing mix playlist: \(playlistId), startVideoId: \(startVideoId ?? "nil (random)")")
         self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
 
         guard let client = self.ytMusicClient else {
             self.logger.warning("No YTMusicClient available for playing mix")
-            return
+            return false
         }
 
         do {
@@ -74,7 +75,7 @@ extension PlayerService {
             let result = try await client.getMixQueue(playlistId: playlistId, startVideoId: startVideoId)
             guard !result.songs.isEmpty else {
                 self.logger.warning("Mix queue returned empty")
-                return
+                return false
             }
 
             // Store continuation token for infinite mix
@@ -96,8 +97,10 @@ extension PlayerService {
 
             self.logger.info("Mix queue loaded with \(shuffledSongs.count) songs, hasContinuation: \(result.continuationToken != nil)")
             self.saveQueueForPersistence()
+            return true
         } catch {
             self.logger.warning("Failed to fetch mix queue: \(error.localizedDescription)")
+            return false
         }
     }
 
