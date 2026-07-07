@@ -324,11 +324,17 @@ struct CommandExecutor {
         }
 
         HapticService.toggle()
+        let previousCount = self.playerService.queue.count
         self.playerService.removeFromQueue(videoIds: videoIds)
-        self.logger.info("Removed \(matches.count) songs matching \(needle) from queue")
+        let removed = previousCount - self.playerService.queue.count
+        self.logger.info("Removed \(removed) songs matching \(needle) from queue")
 
-        let songLabel = matches.count == 1 ? "song" : "songs"
-        return .result("Removed \(matches.count) \(songLabel) matching \"\(trimmed)\"")
+        guard removed > 0 else {
+            return .error(String(localized: "Only the song playing matches \"\(trimmed)\""))
+        }
+
+        let songLabel = removed == 1 ? "song" : "songs"
+        return .result("Removed \(removed) \(songLabel) matching \"\(trimmed)\"")
     }
 
     private func queueRadioFromCurrentTrack() async -> Outcome {

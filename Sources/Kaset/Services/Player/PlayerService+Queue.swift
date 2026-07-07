@@ -433,9 +433,11 @@ extension PlayerService {
         let currentEntryID = self.currentQueueEntryID
         let originalCurrentIndex = self.currentIndex
         let indicesToRemove = self.queueEntries.enumerated()
-            .filter { videoIds.contains($0.element.song.videoId) }
+            .filter { $0.element.id != currentEntryID && videoIds.contains($0.element.song.videoId) }
             .map(\.offset)
-        let remainingEntries = self.queueEntries.filter { !videoIds.contains($0.song.videoId) }
+        let remainingEntries = self.queueEntries.filter {
+            $0.id == currentEntryID || !videoIds.contains($0.song.videoId)
+        }
         self.setQueue(entries: remainingEntries)
         self.realignCurrentIndexAfterQueueMutation(
             currentEntryID: currentEntryID,
