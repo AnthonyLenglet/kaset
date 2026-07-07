@@ -429,6 +429,165 @@ struct PlayerServiceQueueTests {
         #expect(newService.pendingPlayVideoId == duplicateSong.videoId)
     }
 
+    @Test("Authenticated startup clears guest-owned restored playback")
+    func authenticatedStartupClearsGuestOwnedRestoredPlayback() async {
+        let authService = AuthService(webKitManager: MockWebKitManager())
+        authService.completeLogin(sapisid: "placeholder")
+        authService.enterGuestMode()
+        self.playerService.setAuthService(authService)
+        let songs = TestFixtures.makeSongs(count: 2)
+        await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.saveQueueForPersistence()
+
+        let restoredService = PlayerService()
+        restoredService.setYTMusicClient(self.mockClient)
+        #expect(restoredService.restoreQueueFromPersistence() == true)
+
+        restoredService.clearGuestPlaybackForAuthenticatedStartup()
+
+        let nextLaunchService = PlayerService()
+        nextLaunchService.setYTMusicClient(self.mockClient)
+        #expect(nextLaunchService.restoreQueueFromPersistence() == false)
+        #expect(nextLaunchService.queue.isEmpty)
+    }
+
+    @Test("Auth data-store reload does not retag deferred guest restore before startup cleanup")
+    func authDataStoreReloadDoesNotRetagDeferredGuestRestoreBeforeStartupCleanup() async {
+        let authService = AuthService(webKitManager: MockWebKitManager())
+        authService.completeLogin(sapisid: "placeholder")
+        authService.enterGuestMode()
+        self.playerService.setAuthService(authService)
+        let songs = TestFixtures.makeSongs(count: 2)
+        await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.saveQueueForPersistence()
+
+        let restoredService = PlayerService()
+        restoredService.setYTMusicClient(self.mockClient)
+        #expect(restoredService.restoreQueueFromPersistence() == true)
+        #expect(restoredService.isPendingRestoredLoadDeferred == true)
+
+        restoredService.reloadCurrentTrackForAuthDataStoreChange(usesCookieFreeDataStore: false)
+        restoredService.clearGuestPlaybackForAuthenticatedStartup()
+
+        let nextLaunchService = PlayerService()
+        nextLaunchService.setYTMusicClient(self.mockClient)
+        #expect(nextLaunchService.restoreQueueFromPersistence() == false)
+        #expect(nextLaunchService.queue.isEmpty)
+    }
+
+    @Test("Auth data-store reload marks restored guest playback authenticated")
+    func authDataStoreReloadMarksRestoredGuestPlaybackAuthenticated() async {
+        let authService = AuthService(webKitManager: MockWebKitManager())
+        authService.completeLogin(sapisid: "placeholder")
+        authService.enterGuestMode()
+        self.playerService.setAuthService(authService)
+        let songs = TestFixtures.makeSongs(count: 2)
+        await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.saveQueueForPersistence()
+
+        self.playerService.reloadCurrentTrackForAuthDataStoreChange(usesCookieFreeDataStore: false)
+
+        let restoredService = PlayerService()
+        restoredService.setYTMusicClient(self.mockClient)
+        #expect(restoredService.restoreQueueFromPersistence() == true)
+
+        restoredService.clearPlaybackForGuestStartup()
+        restoredService.saveQueueForPersistence()
+
+        let nextLaunchService = PlayerService()
+        nextLaunchService.setYTMusicClient(self.mockClient)
+        #expect(nextLaunchService.restoreQueueFromPersistence() == false)
+        #expect(nextLaunchService.queue.isEmpty)
+    }
+
+    @Test("Guest startup preserves known guest playback session persistence")
+    func guestStartupPreservesKnownGuestPlaybackSessionPersistence() async {
+        let authService = AuthService(webKitManager: MockWebKitManager())
+        await authService.checkLoginStatus()
+        self.playerService.setAuthService(authService)
+        let songs = TestFixtures.makeSongs(count: 2)
+        await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.saveQueueForPersistence()
+
+        let restoredService = PlayerService()
+        restoredService.setYTMusicClient(self.mockClient)
+        #expect(restoredService.restoreQueueFromPersistence() == true)
+
+        restoredService.clearPlaybackForGuestStartup()
+        restoredService.saveQueueForPersistence()
+
+        let nextLaunchService = PlayerService()
+        nextLaunchService.setYTMusicClient(self.mockClient)
+        #expect(nextLaunchService.restoreQueueFromPersistence() == true)
+        #expect(nextLaunchService.queue.count == 2)
+        #expect(nextLaunchService.currentIndex == 1)
+    }
+
+    @Test("Guest startup preserves session saved while signed-out login is open")
+    func guestStartupPreservesSignedOutLoginPlaybackSessionPersistence() async {
+        let authService = AuthService(webKitManager: MockWebKitManager())
+        await authService.checkLoginStatus()
+        authService.startLogin()
+        self.playerService.setAuthService(authService)
+        let songs = TestFixtures.makeSongs(count: 2)
+        await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.saveQueueForPersistence()
+        authService.cancelLoginIfNeeded()
+
+        let restoredService = PlayerService()
+        restoredService.setYTMusicClient(self.mockClient)
+        #expect(restoredService.restoreQueueFromPersistence() == true)
+
+        restoredService.clearPlaybackForGuestStartup()
+        restoredService.saveQueueForPersistence()
+
+        let nextLaunchService = PlayerService()
+        nextLaunchService.setYTMusicClient(self.mockClient)
+        #expect(nextLaunchService.restoreQueueFromPersistence() == true)
+        #expect(nextLaunchService.queue.count == 2)
+        #expect(nextLaunchService.currentIndex == 1)
+    }
+
+    @Test("Guest startup clears legacy unknown playback session persistence")
+    func guestStartupClearsLegacyUnknownPlaybackSessionPersistence() throws {
+        let songs = TestFixtures.makeSongs(count: 2)
+        let queueData = try JSONEncoder().encode(songs)
+        UserDefaults.standard.set(queueData, forKey: "kaset.saved.queue")
+        UserDefaults.standard.set(1, forKey: "kaset.saved.queueIndex")
+        UserDefaults.standard.removeObject(forKey: "kaset.saved.playbackSession")
+
+        #expect(self.playerService.restoreQueueFromPersistence() == true)
+
+        self.playerService.clearPlaybackForGuestStartup()
+
+        let nextLaunchService = PlayerService()
+        nextLaunchService.setYTMusicClient(self.mockClient)
+        #expect(nextLaunchService.restoreQueueFromPersistence() == false)
+        #expect(nextLaunchService.queue.isEmpty)
+    }
+
+    @Test("Guest startup clears playback session saved during expired auth")
+    func guestStartupClearsExpiredAuthPlaybackSessionPersistence() async {
+        let authService = AuthService(webKitManager: MockWebKitManager())
+        authService.completeLogin(sapisid: "expired-sapisid")
+        authService.sessionExpired()
+        self.playerService.setAuthService(authService)
+        let songs = TestFixtures.makeSongs(count: 2)
+        await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.saveQueueForPersistence()
+
+        let restoredService = PlayerService()
+        restoredService.setYTMusicClient(self.mockClient)
+        #expect(restoredService.restoreQueueFromPersistence() == true)
+
+        restoredService.clearPlaybackForGuestStartup()
+
+        let nextLaunchService = PlayerService()
+        nextLaunchService.setYTMusicClient(self.mockClient)
+        #expect(nextLaunchService.restoreQueueFromPersistence() == false)
+        #expect(nextLaunchService.queue.isEmpty)
+    }
+
     @Test("Resume on a restored session loads through the hidden persistent player")
     func resumeDeferredRestoredSession() async {
         // Arrange
@@ -557,6 +716,35 @@ struct PlayerServiceQueueTests {
         #expect(self.mockClient.getSongCalled == true)
         #expect(self.playerService.queue[0].title == "Enriched Title")
         #expect(self.playerService.queue[0].artists[0].name == "Enriched Artist")
+    }
+
+    @Test("Enrichment preserves the .suggested source of a Smart Shuffle entry")
+    func enrichmentPreservesSuggestedSource() async {
+        // Arrange: a complete original plus an incomplete Smart Shuffle suggestion.
+        let original = TestFixtures.makeSong(id: "video-0")
+        let incompleteSuggestion = Song(id: "sug-1", title: "Loading...", artists: [], videoId: "sug-1")
+        self.playerService.setQueue(entries: [
+            QueueEntry(id: UUID(), song: original, source: .queued),
+            QueueEntry(id: UUID(), song: incompleteSuggestion, source: .suggested),
+        ])
+        self.mockClient.songResponses["sug-1"] = Song(
+            id: "sug-1",
+            title: "Enriched Suggestion",
+            artists: [Artist(id: "artist-1", name: "Enriched Artist")],
+            videoId: "sug-1"
+        )
+
+        // Act
+        await self.playerService.enrichQueueMetadata()
+
+        // Assert: metadata updated AND provenance preserved (not demoted to .queued).
+        #expect(self.playerService.queue[1].title == "Enriched Suggestion")
+        #expect(self.playerService.queueEntries[1].source == .suggested)
+        // Still recognized as a suggestion, so it would be stripped, leaving only the original.
+        #expect(
+            PlayerService.stripSuggested(from: self.playerService.queueEntries, keepingCurrentID: nil)
+                .map(\.song.videoId) == ["video-0"]
+        )
     }
 
     @Test("Metadata enrichment updates queue during playback")

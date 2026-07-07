@@ -23,6 +23,7 @@ final class PlaylistDetailViewModel {
         let continuation: String
         let currentDetail: PlaylistDetail
         let isLikedMusicPlaylist: Bool
+        let requiresAuth: Bool
     }
 
     /// Current loading state.
@@ -48,6 +49,9 @@ final class PlaylistDetailViewModel {
 
     @ObservationIgnored
     private var loadGeneration = 0
+
+    @ObservationIgnored
+    private var loadedTrackVideoIds: Set<String> = []
 
     private var removedLikedMusicVideoIDs: Set<String> = []
     private var countedRemovedLikedMusicVideoIDs: Set<String> = []
@@ -92,6 +96,52 @@ final class PlaylistDetailViewModel {
                 subtitle: author.subtitle,
                 profileKind: author.profileKind
             )
+    }
+
+    @ObservationIgnored private var loadTask: Task<Void, Never>?
+    @ObservationIgnored private var fullLoadTask: Task<Void, Never>?
+    @ObservationIgnored private var pagingTask: Task<Bool, Never>?
+
+    /// Runs the initial load (including full-playlist paging) once, coalescing concurrent
+    /// callers so a player can await the complete track set before finalizing the queue.
+    func ensureLoaded() async {
+        if let loadTask {
+            await loadTask.value
+            return
+        }
+        guard self.loadingState == .idle else { return }
+        let task = Task { await self.load() }
+        self.loadTask = task
+        await task.value
+        self.loadTask = nil
+    }
+
+    /// Drives pagination to completion (every track), for callers that need the full playlist
+    /// (e.g. building a play queue). Coalesces callers and retries no-progress rounds caused by
+    /// transient continuation failures or concurrent batches. Runs in a stored unstructured task
+    /// so it survives `.task` restarts — the same single-flight discipline as `ensureLoaded`.
+    func loadAllRemaining() async {
+        await self.ensureLoaded()
+        if let fullLoadTask {
+            await fullLoadTask.value
+            return
+        }
+        let task = Task { @MainActor in
+            var consecutiveStalls = 0
+            while self.hasMore, consecutiveStalls < 8 {
+                let before = self.playlistDetail?.tracks.count ?? 0
+                _ = await self.loadMoreBatch()
+                if (self.playlistDetail?.tracks.count ?? 0) > before {
+                    consecutiveStalls = 0
+                } else {
+                    consecutiveStalls += 1
+                    try? await Task.sleep(for: .milliseconds(250))
+                }
+            }
+        }
+        self.fullLoadTask = task
+        await task.value
+        self.fullLoadTask = nil
     }
 
     /// Loads the playlist details including tracks.
@@ -209,6 +259,7 @@ final class PlaylistDetailViewModel {
             let loadedTrackCount = detail.tracks.count
             let totalTrackCount = detail.trackCount ?? loadedTrackCount
             self.logger.info("Playlist loaded: \(loadedTrackCount) loaded tracks, total: \(totalTrackCount), hasMore: \(self.hasMore)")
+            self.replaceLoadedTrackVideoIds(with: detail.tracks)
             self.startRemainingTracksTaskIfNeeded(generation: generation)
         } catch is CancellationError {
             guard self.isCurrentLoadGeneration(generation) else { return }
@@ -258,8 +309,10 @@ final class PlaylistDetailViewModel {
                 guard let batch = self?.nextRemainingTracksBatch(generation: generation) else { break }
 
                 do {
-                    let loadContinuation = client.getPlaylistContinuation(token:)
-                    let response = try await loadContinuation(batch.continuation)
+                    let response = try await client.getPlaylistContinuation(
+                        token: batch.continuation,
+                        requiresAuth: batch.requiresAuth
+                    )
                     guard self?.applyRemainingTracksResponse(response, batch: batch) == true else { break }
                 } catch is CancellationError {
                     self?.restoreLoadedStateIfCurrent(generation: generation)
@@ -296,7 +349,8 @@ final class PlaylistDetailViewModel {
             generation: generation,
             continuation: continuationToken,
             currentDetail: currentDetail,
-            isLikedMusicPlaylist: self.isLikedMusicPlaylist
+            isLikedMusicPlaylist: self.isLikedMusicPlaylist,
+            requiresAuth: currentDetail.requiresPersonalAccountForContinuations
         )
     }
 
@@ -306,8 +360,6 @@ final class PlaylistDetailViewModel {
               let latestDetail = self.playlistDetail
         else { return false }
 
-        let originalExistingVideoIds = Set(batch.currentDetail.tracks.map(\.videoId))
-        let latestExistingVideoIds = originalExistingVideoIds.union(latestDetail.tracks.map(\.videoId))
         let skippedRemovedVideoIDs = batch.isLikedMusicPlaylist
             ? response.tracks.compactMap { song -> String? in
                 guard self.removedLikedMusicVideoIDs.contains(song.videoId),
@@ -321,7 +373,11 @@ final class PlaylistDetailViewModel {
             : response.tracks
         let skippedLiveRemovedTracks = candidateTracks.count != response.tracks.count
         let responseContainsLiveInsertedTrack = batch.isLikedMusicPlaylist && response.tracks.contains { self.insertedLikedMusicVideoIDs.contains($0.videoId) }
-        let newTracks = candidateTracks.filter { !latestExistingVideoIds.contains($0.videoId) }
+        let originalExistingVideoIds = Set(batch.currentDetail.tracks.map(\.videoId))
+        let newTracks = candidateTracks.filter {
+            !self.loadedTrackVideoIds.contains($0.videoId)
+                && !originalExistingVideoIds.contains($0.videoId)
+        }
 
         if newTracks.isEmpty {
             let duplicatesWereAlreadyPresent = candidateTracks.allSatisfy { originalExistingVideoIds.contains($0.videoId) }
@@ -347,7 +403,9 @@ final class PlaylistDetailViewModel {
             newTracks
         }
 
-        let allTracks = latestDetail.tracks + normalizedNewTracks
+        var allTracks = latestDetail.tracks
+        allTracks.reserveCapacity(latestDetail.tracks.count + normalizedNewTracks.count)
+        allTracks.append(contentsOf: normalizedNewTracks)
         let adjustedTrackCount = self.adjustedTrackCount(latestDetail.trackCount, skippedRemovalCount: skippedRemovedVideoIDs.count)
         let preservedTrackCount = max(allTracks.count, adjustedTrackCount ?? 0)
         let updatedPlaylist = Playlist(
@@ -364,11 +422,10 @@ final class PlaylistDetailViewModel {
             tracks: allTracks,
             duration: latestDetail.duration
         )
+        self.insertLoadedTrackVideoIds(from: normalizedNewTracks)
 
         if batch.isLikedMusicPlaylist {
-            for song in normalizedNewTracks {
-                SongLikeStatusManager.shared.setStatus(.like, for: song.videoId)
-            }
+            SongLikeStatusManager.shared.setStatus(.like, for: normalizedNewTracks.lazy.map(\.videoId))
         }
 
         self.continuationToken = response.continuationToken
@@ -425,7 +482,23 @@ final class PlaylistDetailViewModel {
         return detail.tracks.count >= Self.fullPlaylistLoadTrackThreshold
     }
 
+    /// Single-flight wrapper around one continuation fetch. Concurrent callers — the initial
+    /// full-playlist load, the scroll-triggered `loadMore()`, `loadAllRemaining`, and repeated play
+    /// triggers — coalesce onto the in-flight batch and receive its real result, instead of colliding
+    /// on `loadingState` (the loser would otherwise return a spurious `false` that resilient loops
+    /// mis-read as "no progress" and give up on, leaving the queue stuck at a partial count).
     private func loadMoreBatch(generation: Int? = nil) async -> Bool {
+        if let pagingTask {
+            return await pagingTask.value
+        }
+        let task = Task { @MainActor in await self.performLoadMoreBatch(generation: generation) }
+        self.pagingTask = task
+        let result = await task.value
+        self.pagingTask = nil
+        return result
+    }
+
+    private func performLoadMoreBatch(generation: Int? = nil) async -> Bool {
         guard self.loadingState == .loaded,
               self.hasMore,
               let continuationToken,
@@ -437,12 +510,17 @@ final class PlaylistDetailViewModel {
         self.logger.info("Loading more playlist tracks")
 
         do {
-            let response = try await client.getPlaylistContinuation(token: continuationToken)
+            let continuation = continuationToken
+            let response = try await client.getPlaylistContinuation(
+                token: continuation,
+                requiresAuth: currentDetail.requiresPersonalAccountForContinuations
+            )
             let batch = ContinuationDrainBatch(
                 generation: generation ?? self.loadGeneration,
-                continuation: continuationToken,
+                continuation: continuation,
                 currentDetail: currentDetail,
-                isLikedMusicPlaylist: self.isLikedMusicPlaylist
+                isLikedMusicPlaylist: self.isLikedMusicPlaylist,
+                requiresAuth: currentDetail.requiresPersonalAccountForContinuations
             )
             return self.applyRemainingTracksResponse(response, batch: batch)
         } catch is CancellationError {
@@ -494,7 +572,7 @@ final class PlaylistDetailViewModel {
     func refresh() async {
         self.cancelAllLiveSyncTasks()
         self.cancelRemainingTracksTask()
-        self.playlistDetail = nil
+        self.replacePlaylistDetail(nil)
         self.hasMore = false
         self.continuationToken = nil
         await self.load(restartingInFlightLoad: true)
@@ -512,9 +590,7 @@ final class PlaylistDetailViewModel {
 
     private func normalizeLikedMusicDetail(_ detail: PlaylistDetail) -> PlaylistDetail {
         let likedTracks = self.markSongsAsLiked(detail.tracks, deduplicating: true)
-        for song in likedTracks {
-            SongLikeStatusManager.shared.setStatus(.like, for: song.videoId)
-        }
+        SongLikeStatusManager.shared.setStatus(.like, for: likedTracks.lazy.map(\.videoId))
 
         let resolvedTrackCount = max(detail.trackCount ?? 0, likedTracks.count)
         return self.updatedPlaylistDetail(
@@ -557,12 +633,28 @@ final class PlaylistDetailViewModel {
     }
 
     private func containsTrack(videoId: String) -> Bool {
-        self.playlistDetail?.tracks.contains(where: { $0.videoId == videoId }) == true
+        self.loadedTrackVideoIds.contains(videoId)
+    }
+
+    private func replacePlaylistDetail(_ detail: PlaylistDetail?) {
+        self.playlistDetail = detail
+        self.replaceLoadedTrackVideoIds(with: detail?.tracks ?? [])
+    }
+
+    private func replaceLoadedTrackVideoIds(with tracks: [Song]) {
+        self.loadedTrackVideoIds = Set(tracks.map(\.videoId))
+    }
+
+    private func insertLoadedTrackVideoIds(from tracks: [Song]) {
+        self.loadedTrackVideoIds.reserveCapacity(self.loadedTrackVideoIds.count + tracks.count)
+        for track in tracks {
+            self.loadedTrackVideoIds.insert(track.videoId)
+        }
     }
 
     private func insertLiveSyncedLikedSong(_ song: Song) {
         guard let currentDetail = self.playlistDetail else { return }
-        guard !currentDetail.tracks.contains(where: { $0.videoId == song.videoId }) else { return }
+        guard !self.loadedTrackVideoIds.contains(song.videoId) else { return }
 
         var likedSong = song
         likedSong.likeStatus = .like
@@ -577,6 +669,7 @@ final class PlaylistDetailViewModel {
             tracks: updatedTracks,
             trackCount: updatedTrackCount
         )
+        self.loadedTrackVideoIds.insert(song.videoId)
         SongLikeStatusManager.shared.setStatus(.like, for: song.videoId)
         self.logger.info("Live sync: added song \(song.videoId) to liked music")
     }
@@ -595,6 +688,7 @@ final class PlaylistDetailViewModel {
             tracks: updatedTracks,
             trackCount: updatedTrackCount
         )
+        self.loadedTrackVideoIds.remove(videoId)
         self.logger.info("Live sync: removed song \(videoId) from liked music")
     }
 

@@ -4,9 +4,9 @@ import Foundation
 enum PlaylistPlaybackActions {
     struct ContinuationContext {
         let continuationToken: String?
-        let existingVideoIds: Set<String>
-        let expectedQueueEntryIDs: [UUID]
+        let loadGeneration: Int
         let playlist: Playlist
+        let requiresAuth: Bool
         let client: any YTMusicClientProtocol
         let playerService: PlayerService
     }
@@ -18,13 +18,22 @@ enum PlaylistPlaybackActions {
         playerService: PlayerService
     ) {
         Task { @MainActor in
+            let requestGeneration = playerService.playbackRequestGeneration
             do {
                 let response = try await client.getPlaylist(id: playlist.id)
+                guard requestGeneration == playerService.playbackRequestGeneration else {
+                    DiagnosticsLogger.ui.info("Discarding stale playlist playback request after privacy boundary")
+                    return
+                }
                 var songs = response.detail.tracks
 
                 if self.isRadioPlaylist(playlist.id) {
                     do {
                         let allTracks = try await client.getPlaylistAllTracks(playlistId: playlist.id)
+                        guard requestGeneration == playerService.playbackRequestGeneration else {
+                            DiagnosticsLogger.ui.info("Discarding stale playlist all-tracks request after privacy boundary")
+                            return
+                        }
                         if allTracks.count >= songs.count, !allTracks.isEmpty {
                             songs = self.tracksForPlaylistPlayback(
                                 browseTracks: response.detail.tracks,
@@ -38,19 +47,31 @@ enum PlaylistPlaybackActions {
                     let playableSongs = self.playableSongsWithPlaylistArtwork(songs, playlist: playlist)
                     guard !playableSongs.isEmpty else { return }
 
-                    await playerService.playQueue(playableSongs, startingAt: 0)
+                    // Defer Smart Shuffle suggestions until the whole playlist is in the queue, so
+                    // they dedup against the full set; re-shuffle the complete set on finish. The
+                    // load generation is established before playback's first suspension so the premature
+                    // fill cannot slip through.
+                    let willDeferLoad = response.continuationToken != nil
+                    let loadGeneration = await playerService.playQueue(
+                        playableSongs, startingAt: 0, deferringSmartShuffleFill: willDeferLoad
+                    )
                     DiagnosticsLogger.ui.info("Playing playlist '\(playlist.title)' (\(playableSongs.count) initial songs)")
+
+                    guard let loadGeneration else { return }
 
                     await self.appendContinuations(
                         ContinuationContext(
                             continuationToken: response.continuationToken,
-                            existingVideoIds: Set(songs.map(\.videoId)),
-                            expectedQueueEntryIDs: playerService.queueEntryIDs,
+                            loadGeneration: loadGeneration,
                             playlist: playlist,
+                            requiresAuth: response.detail.requiresPersonalAccountForContinuations,
                             client: client,
                             playerService: playerService
                         )
                     )
+                    // Stand down if a different playback superseded this load while it paged.
+                    guard playerService.isCurrentQueueLoad(loadGeneration) else { return }
+                    await playerService.endQueueLoading(loadGeneration)
                     return
                 }
 
@@ -103,21 +124,24 @@ enum PlaylistPlaybackActions {
     @MainActor
     static func appendContinuations(_ context: ContinuationContext) async {
         var nextContinuation = context.continuationToken
-        var seenVideoIds = context.existingVideoIds
 
         while let c = nextContinuation, !Task.isCancelled {
             do {
-                let response = try await context.client.getPlaylistContinuation(token: c)
-                let newTracks = response.tracks.filter { seenVideoIds.insert($0.videoId).inserted }
-                guard !newTracks.isEmpty else { break }
+                let response = try await context.client.getPlaylistContinuation(
+                    token: c,
+                    requiresAuth: context.requiresAuth
+                )
+                guard !response.tracks.isEmpty else { break }
 
-                let playableSongs = Self.playableSongsWithPlaylistArtwork(newTracks, playlist: context.playlist)
+                let playableSongs = Self.playableSongsWithPlaylistArtwork(response.tracks, playlist: context.playlist)
                 if !playableSongs.isEmpty {
-                    guard Array(context.playerService.queueEntryIDs.prefix(context.expectedQueueEntryIDs.count)) == context.expectedQueueEntryIDs else {
-                        DiagnosticsLogger.ui.debug("Discarding playlist continuations because the queue changed")
+                    // Tolerate user edits (remove/reorder) within the same playback; only discard if a
+                    // *different* playback superseded this load (which bumps the load generation).
+                    guard context.playerService.isCurrentQueueLoad(context.loadGeneration) else {
+                        DiagnosticsLogger.ui.debug("Discarding playlist continuations because a new playback started")
                         return
                     }
-                    context.playerService.appendToQueue(playableSongs)
+                    context.playerService.appendOriginalTracks(playableSongs)
                 }
 
                 nextContinuation = response.continuationToken

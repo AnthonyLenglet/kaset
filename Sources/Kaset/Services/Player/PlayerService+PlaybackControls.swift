@@ -345,6 +345,7 @@ extension PlayerService {
                     await self.play(song: nextSong)
                 }
                 await self.fetchMoreMixSongsIfNeeded()
+                await self.fillSmartShuffleWindow()
                 self.saveQueueForPersistence()
             } else if self.repeatMode == .all {
                 self.pushForwardSkipStackIfLeavingIndex(for: 0)
@@ -352,6 +353,7 @@ extension PlayerService {
                 if let firstSong = self.queue.first {
                     await self.play(song: firstSong)
                 }
+                await self.fillSmartShuffleWindow()
                 self.saveQueueForPersistence()
             } else if self.mixContinuationToken != nil {
                 let previousCount = self.queue.count
@@ -362,6 +364,7 @@ extension PlayerService {
                     if let nextSong = self.queue[safe: self.currentIndex] {
                         await self.play(song: nextSong)
                     }
+                    await self.fillSmartShuffleWindow()
                     self.saveQueueForPersistence()
                 }
             }
@@ -477,25 +480,142 @@ extension PlayerService {
         }
     }
 
-    /// Toggles shuffle mode.
-    func toggleShuffle() {
-        self.shuffleEnabled.toggle()
-        if self.shuffleEnabled {
-            self.materializeShuffleQueueForCurrentTrack(recordUndo: true, storesOriginalOrder: true)
-        } else {
+    /// Applies a new shuffle mode, materializing or restoring the queue as needed.
+    func setShuffleMode(_ newMode: ShuffleMode) {
+        let oldMode = self.shuffleMode
+        guard newMode != oldMode else { return }
+        self.shuffleMode = newMode
+
+        // Leaving smart: cancel any in-flight fill (so it can't re-add suggestions after the strip),
+        // then strip upcoming suggestions before applying the new ordering.
+        if oldMode == .smart {
+            self.cancelSmartShuffleFill()
+            self.stripSuggestedEntries()
+            self.resetSmartShuffleState()
+        }
+
+        switch newMode {
+        case .off:
+            // If the current track is a Smart Shuffle suggestion, `stripSuggestedEntries()` keeps it
+            // above and restore appends non-snapshot entries so playback stays anchored to it.
             self.restoreQueueOrderBeforeShuffle(recordUndo: true)
+        case .on:
+            // From .off: shuffle and snapshot original order.
+            // From .smart (suggestions already stripped): reshuffle the originals in place.
+            self.materializeShuffleQueueForCurrentTrack(
+                recordUndo: true,
+                storesOriginalOrder: oldMode == .off
+            )
+        case .smart:
+            // Phase 1 (synchronous): plain shuffle so playback continues instantly.
+            // From .on, preserve the existing original-order snapshot so turning shuffle off restores
+            // playlist order rather than the already-shuffled order.
+            self.materializeShuffleQueueForCurrentTrack(
+                recordUndo: true,
+                storesOriginalOrder: oldMode == .off
+            )
+            // Phase 2 (async): fetch radio seeds and fill the suggestion window.
+            Task { await self.fillSmartShuffleWindow() }
         }
-        if SettingsManager.shared.rememberPlaybackSettings {
-            UserDefaults.standard.set(self.shuffleEnabled, forKey: Self.shuffleEnabledKey)
+
+        self.persistShuffleMode()
+        self.logger.info("Shuffle mode: \(self.shuffleMode.rawValue)")
+    }
+
+    /// Cycles the player-bar shuffle control: off -> on -> smart -> off.
+    /// When Smart Shuffle is disabled in settings, the smart state is skipped (off -> on -> off).
+    func cycleShuffleMode() {
+        let smartAvailable = SettingsManager.shared.smartShuffleEnabled
+        switch self.shuffleMode {
+        case .off: self.setShuffleMode(.on)
+        case .on: self.setShuffleMode(smartAvailable ? .smart : .off)
+        case .smart: self.setShuffleMode(.off)
         }
-        let status = self.shuffleEnabled ? "enabled" : "disabled"
-        self.logger.info("Shuffle mode: \(status)")
+    }
+
+    /// Binary shuffle toggle, preserved for menu (⌘S), mini player, AppleScript, and AI callers.
+    /// Turning shuffle "on" enables plain shuffle; turning "off" also exits smart mode.
+    func toggleShuffle() {
+        self.setShuffleMode(self.shuffleEnabled ? .off : .on)
+    }
+
+    /// Persists the current shuffle mode (and a legacy bool for downgrade compatibility).
+    func persistShuffleMode() {
+        guard SettingsManager.shared.rememberPlaybackSettings else { return }
+        UserDefaults.standard.set(self.shuffleMode.rawValue, forKey: Self.shuffleModeKey)
+        UserDefaults.standard.set(self.shuffleEnabled, forKey: Self.shuffleEnabledKey)
     }
 
     /// Cycles through repeat modes: off -> all -> one -> off.
     func cycleRepeatMode() {
         self.advanceRepeatMode()
         self.logger.info("Repeat mode: \(String(describing: self.repeatMode))")
+    }
+
+    /// Clears active playback UI/WebView state when startup resolves to guest mode.
+    ///
+    /// Unlike explicit sign-out, this preserves only persisted sessions that are
+    /// known to have been created in guest mode. Legacy/unknown sessions are
+    /// cleared because they may contain account-owned listening metadata.
+    func clearPlaybackForGuestStartup() {
+        self.logger.info("Clearing active playback state for guest startup")
+        guard self.restoredPlaybackSessionOwnerScope == Self.playbackSessionScopeGuest else {
+            self.clearSavedQueue()
+            self.clearPlaybackForPrivacyBoundary(persistEmptyQueue: true)
+            return
+        }
+        self.logger.info("Preserving restored guest-owned playback session")
+    }
+
+    /// Clears guest-owned restored playback when startup resolves to a signed-in
+    /// account. Guest Mode itself is not persisted, so a guest-owned restore must
+    /// not silently move onto the authenticated playback store.
+    func clearGuestPlaybackForAuthenticatedStartup() {
+        guard self.restoredPlaybackSessionOwnerScope == Self.playbackSessionScopeGuest else { return }
+        self.logger.info("Clearing guest-owned playback state for authenticated startup")
+        self.clearSavedQueue()
+        self.clearPlaybackForPrivacyBoundary(persistEmptyQueue: true)
+    }
+
+    /// Synchronously clears playback, queue, and WebView state at the sign-out privacy boundary.
+    func clearPlaybackForSignOut() {
+        self.logger.info("Clearing playback state for sign-out")
+        self.clearPlaybackForPrivacyBoundary(persistEmptyQueue: true)
+    }
+
+    private func clearPlaybackForPrivacyBoundary(persistEmptyQueue: Bool) {
+        self.invalidatePendingPlaybackRequests()
+        self.clearRestoredPlaybackSessionState()
+        SingletonPlayerWebView.shared.tearDown()
+        self.state = .idle
+        self.songNearingEnd = false
+        self.isKasetInitiatedPlayback = false
+        self.shouldSuppressAutoplayAfterQueueEnd = false
+        self.currentEpisode = nil
+        self.currentTrack = nil
+        self.pendingPlayVideoId = nil
+        self.progress = 0
+        self.currentTimeMs = 0
+        self.duration = 0
+        self.showMiniPlayer = false
+        self.isMiniPlayerVisible = false
+        self.showLyrics = false
+        self.showQueue = false
+        self.showVideo = false
+        self.currentTrackHasVideo = false
+        self.mixContinuationToken = nil
+        self.mixContinuationRequiresAuth = false
+        self.queueOrderBeforeShuffle = nil
+        self.clearQueueUndoRedoHistory()
+        self.currentIndex = 0
+        if !persistEmptyQueue {
+            self.suppressNextEmptyQueuePersistence = true
+        }
+        self.setQueue([])
+        self.resetTrackStatus()
+        if persistEmptyQueue {
+            self.saveQueueForPersistence()
+        }
     }
 
     /// Stops playback and clears state.
