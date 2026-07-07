@@ -114,7 +114,7 @@ extension PlayerService {
 
             guard requestGeneration == self.playbackRequestGeneration else {
                 self.logger.info("Discarding stale mix playback request after privacy boundary")
-                return
+                return false
             }
 
             // Store continuation token for infinite mix
