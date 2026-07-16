@@ -111,7 +111,7 @@ struct SimplePlaylistDetailView: View {
                     Button {
                         Task { await self.play(playableTracks, startingAt: 0) }
                     } label: {
-                        Label("Play", systemImage: "play.fill")
+                        Label(String(localized: "Play"), systemImage: "play.fill")
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(playableTracks.isEmpty)
@@ -122,7 +122,7 @@ struct SimplePlaylistDetailView: View {
                         }
                         Task { await self.play(playableTracks, startingAt: 0) }
                     } label: {
-                        Label("Shuffle", systemImage: "shuffle")
+                        Label(String(localized: "Shuffle"), systemImage: "shuffle")
                     }
                     .buttonStyle(.bordered)
                     .disabled(playableTracks.isEmpty)
@@ -284,7 +284,8 @@ struct SimpleLyricsView: View {
             case let .synced(synced):
                 SyncedLyricsDisplayView(
                     lyrics: synced,
-                    currentTimeMs: self.playerService.currentTimeMs,
+                    currentLineIndex: self.playerService.currentLyricsLineIndex,
+                    displayTimeMs: self.playerService.currentLyricsDisplayTimeMs,
                     onSeek: { timeMs in
                         Task { await self.playerService.seek(to: Double(timeMs) / 1000.0) }
                     }
@@ -373,10 +374,14 @@ struct SimpleLyricsView: View {
     }
 
     private func updateLyricsPolling(for result: LyricResult) {
-        if case .synced = result {
-            SingletonPlayerWebView.shared.startLyricsPoll()
+        if case let .synced(synced) = result {
+            self.playerService.currentLyricsLineIndex = nil
+            self.playerService.currentLyricsDisplayTimeMs = nil
+            SingletonPlayerWebView.shared.startLyricsPoll(lineRanges: synced.bridgeLineRanges)
         } else {
             SingletonPlayerWebView.shared.stopLyricsPoll()
+            self.playerService.currentLyricsLineIndex = nil
+            self.playerService.currentLyricsDisplayTimeMs = nil
         }
     }
 

@@ -6,6 +6,7 @@ import Observation
 @Observable
 final class SettingsManager {
     static let shared = SettingsManager()
+    nonisolated static let defaultAmbientBackdropStyle: AmbientBackdropStyle = .soft
 
     // MARK: - Settings Keys
 
@@ -87,12 +88,21 @@ final class SettingsManager {
     /// Available language options for app UI localization.
     enum ContentLanguage: String, CaseIterable, Identifiable {
         case system
-        case english
-        case korean
         case arabic
-        case turkish
-        case indonesian
+        case german
+        case english
+        case spanish
         case french
+        case indonesian
+        case italian
+        case korean
+        case dutch
+        case polish
+        case portuguese
+        case russian
+        case swedish
+        case turkish
+        case ukrainian
 
         var id: String {
             rawValue
@@ -101,12 +111,21 @@ final class SettingsManager {
         var displayName: String {
             switch self {
             case .system: String(localized: "System Default")
-            case .english: "English"
-            case .korean: "한국어"
             case .arabic: "العربية"
-            case .turkish: "Türkçe"
-            case .indonesian: "Bahasa Indonesia"
+            case .dutch: "Nederlands"
+            case .english: "English"
             case .french: "Français"
+            case .german: "Deutsch"
+            case .indonesian: "Bahasa Indonesia"
+            case .italian: "Italiano"
+            case .korean: "한국어"
+            case .polish: "Polski"
+            case .portuguese: "Português"
+            case .russian: "Русский"
+            case .spanish: "Español"
+            case .swedish: "Svenska"
+            case .turkish: "Türkçe"
+            case .ukrainian: "Українська"
             }
         }
 
@@ -114,12 +133,21 @@ final class SettingsManager {
         var languageCode: String? {
             switch self {
             case .system: nil
-            case .english: "en"
-            case .korean: "ko"
             case .arabic: "ar"
-            case .turkish: "tr"
-            case .indonesian: "id"
+            case .dutch: "nl"
+            case .english: "en"
             case .french: "fr"
+            case .german: "de"
+            case .indonesian: "id"
+            case .italian: "it"
+            case .korean: "ko"
+            case .polish: "pl"
+            case .portuguese: "pt"
+            case .russian: "ru"
+            case .spanish: "es"
+            case .swedish: "sv"
+            case .turkish: "tr"
+            case .ukrainian: "uk"
             }
         }
 
@@ -384,10 +412,23 @@ final class SettingsManager {
         }
     }
 
-    /// The style the YouTube watch page should actually render: the chosen
-    /// style when enabled, `.off` when the feature is disabled.
+    /// The style the YouTube watch page should request: the chosen style when
+    /// enabled, `.off` when the feature is disabled. Runtime energy/accessibility
+    /// downgrades are applied inside `AmbientVideoBackdrop`, which observes those
+    /// external states directly.
     var resolvedAmbientStyle: AmbientBackdropStyle {
-        self.ambientBackdropEnabled ? self.ambientBackdropStyle : .off
+        Self.resolveAmbientStyle(
+            enabled: self.ambientBackdropEnabled,
+            preferredStyle: self.ambientBackdropStyle
+        )
+    }
+
+    nonisolated static func resolveAmbientStyle(
+        enabled: Bool,
+        preferredStyle: AmbientBackdropStyle
+    ) -> AmbientBackdropStyle {
+        guard enabled, preferredStyle != .off else { return .off }
+        return preferredStyle
     }
 
     /// The language used for the app interface and API content.
@@ -475,7 +516,7 @@ final class SettingsManager {
         {
             self.ambientBackdropStyle = style
         } else {
-            self.ambientBackdropStyle = .live
+            self.ambientBackdropStyle = Self.defaultAmbientBackdropStyle
         }
 
         if let rawValue = UserDefaults.standard.string(forKey: Keys.defaultLaunchPage),

@@ -49,7 +49,7 @@ struct AccountRowView: View {
                     Image(systemName: "checkmark")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(.blue)
-                        .accessibilityLabel("Selected")
+                        .accessibilityLabel(String(localized: "Selected"))
                 }
             }
             .padding(.horizontal, 12)
@@ -72,7 +72,7 @@ struct AccountRowView: View {
     private var avatarView: some View {
         Group {
             if let thumbnailURL = account.thumbnailURL {
-                CachedAsyncImage(url: thumbnailURL, targetSize: CGSize(width: 80, height: 80)) { image in
+                CachedAsyncImage(url: thumbnailURL, targetSize: CGSize(width: 40, height: 40)) { image in
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fill)

@@ -16,6 +16,7 @@ struct PlaylistDetailView: View {
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
     @Environment(LibraryViewModel.self) var libraryViewModel: LibraryViewModel?
     @Environment(\.dismiss) var dismiss
+    @Environment(\.onPlaylistDeleted) var onPlaylistDeleted
     /// Tracks whether this playlist has been added to library in this session.
     @State var isAddedToLibrary: Bool = false
     /// Whether the refine playlist sheet is visible.
@@ -152,7 +153,7 @@ struct PlaylistDetailView: View {
     private func headerView(_ detail: PlaylistDetail) -> some View {
         HStack(alignment: .top, spacing: 20) {
             // Thumbnail
-            CachedAsyncImage(url: detail.thumbnailURL?.highQualityThumbnailURL) { image in
+            CachedAsyncImage(url: detail.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 180, height: 180)) { image in
                 image
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -214,7 +215,7 @@ struct PlaylistDetailView: View {
                     }
 
                     if index < artists.count - 1 {
-                        Text(", ")
+                        Text(verbatim: ", ")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
@@ -391,7 +392,7 @@ struct PlaylistDetailView: View {
                     fallbackAlbum: fallbackAlbum
                 )
             } label: {
-                Label("Play", systemImage: "play.fill")
+                Label(String(localized: "Play"), systemImage: "play.fill")
             }
 
             if self.authService.hasPersonalAccount {
@@ -414,7 +415,7 @@ struct PlaylistDetailView: View {
                 Button {
                     SongActionsHelper.addToLibrary(track, playerService: self.playerService)
                 } label: {
-                    Label("Add to Library", systemImage: "plus.circle")
+                    Label(String(localized: "Add to Library"), systemImage: "plus.circle")
                 }
 
                 Divider()
@@ -434,7 +435,7 @@ struct PlaylistDetailView: View {
 
             if let artist = track.artists.first(where: { $0.hasNavigableId }) {
                 NavigationLink(value: artist) {
-                    Label("Go to Artist", systemImage: "person")
+                    Label(String(localized: "Go to Artist"), systemImage: "person")
                 }
             }
 
@@ -448,10 +449,36 @@ struct PlaylistDetailView: View {
                     author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
                 )
                 NavigationLink(value: playlist) {
-                    Label("Go to Album", systemImage: "square.stack")
+                    Label(String(localized: "Go to Album"), systemImage: "square.stack")
                 }
             }
         }
+
+        if self.canRemoveTrack(track) {
+            if track.isPlayable {
+                Divider()
+            }
+
+            Button(role: .destructive) {
+                Task {
+                    await LibraryMutationActions.removeSongFromPlaylist(track, from: self.viewModel, client: self.viewModel.client)
+                }
+            } label: {
+                Label(String(localized: "Remove from Playlist"), systemImage: "minus.circle")
+            }
+        }
+    }
+
+    /// Whether `track` can be removed from the currently loaded playlist: the user must
+    /// own the playlist (not an album, not the uploaded-songs surface), and the track
+    /// must carry the playlist-item identifier a removal call requires.
+    private func canRemoveTrack(_ track: Song) -> Bool {
+        guard let detail = self.viewModel.playlistDetail else { return false }
+        return !self.viewModel.isRemovingTrack
+            && detail.canDelete
+            && !detail.isAlbum
+            && !detail.isUploadedSongs
+            && track.playlistSetVideoId != nil
     }
 
     private func playTrackInQueue(
@@ -490,7 +517,6 @@ struct PlaylistDetailView: View {
         initial cleanedTracks: [Song], startingAt index: Int,
         fallbackArtist: String?, fallbackAlbum: Album?
     ) {
-        let initiallyLoadedCount = cleanedTracks.count
         Task { @MainActor in
             let willDeferLoad = self.viewModel.hasMore
             let loadGeneration = await self.playerService.playQueue(
@@ -500,6 +526,7 @@ struct PlaylistDetailView: View {
             guard let loadGeneration else { return }
 
             await self.viewModel.loadAllRemaining()
+            await self.viewModel.waitForTrackRemovalToFinish()
 
             // Stand down if a *different* playback superseded this load while it paged. (User edits
             // such as removing a track keep the same load generation, so loading continues.)
@@ -509,7 +536,10 @@ struct PlaylistDetailView: View {
                 self.viewModel.playlistDetail?.tracks ?? [],
                 fallbackArtist: fallbackArtist, fallbackAlbum: fallbackAlbum
             )
-            let remaining = Array(fullTracks.dropFirst(initiallyLoadedCount))
+            let remaining = PlaylistPlaybackActions.remainingTracks(
+                after: cleanedTracks,
+                in: fullTracks
+            )
             self.playerService.appendOriginalTracks(remaining)
             await self.playerService.endQueueLoading(loadGeneration)
         }
@@ -530,7 +560,9 @@ struct PlaylistDetailView: View {
     {
         tracks.map { song in
             var cleanedArtists = song.artists.compactMap { artist -> Artist? in
-                if artist.name == "Album" { return nil }
+                if artist.name == "Album" {
+                    return nil
+                }
                 var cleanName = artist.name
                 if cleanName.hasPrefix("Album, ") {
                     cleanName = String(cleanName.dropFirst(7))
@@ -575,7 +607,8 @@ struct PlaylistDetailView: View {
                 duration: song.duration,
                 thumbnailURL: finalThumbnail,
                 videoId: song.videoId,
-                isPlayable: song.isPlayable
+                isPlayable: song.isPlayable,
+                playlistSetVideoId: song.playlistSetVideoId
             )
         }
     }
@@ -745,7 +778,7 @@ private struct PlaylistTrackRow<Menu: View>: View {
                 .frame(width: 28, alignment: .trailing)
 
                 if !self.isAlbum {
-                    CachedAsyncImage(url: self.track.thumbnailURL) { image in
+                    CachedAsyncImage(url: self.track.thumbnailURL, targetSize: CGSize(width: 40, height: 40)) { image in
                         image.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
                         Rectangle().fill(.quaternary)

@@ -27,6 +27,41 @@ enum LibraryMutationActions {
         }
     }
 
+    /// Removes a song from the playlist currently loaded in `viewModel`. The row is removed
+    /// optimistically and restored if the server mutation fails.
+    static func removeSongFromPlaylist(
+        _ song: Song,
+        from viewModel: PlaylistDetailViewModel,
+        client: any YTMusicClientProtocol
+    ) async {
+        guard let setVideoId = song.playlistSetVideoId else {
+            DiagnosticsLogger.api.error("Cannot remove '\(song.title)' from playlist: missing setVideoId")
+            HapticService.error()
+            return
+        }
+        guard let removal = viewModel.beginOptimisticTrackRemoval(setVideoId: setVideoId) else { return }
+
+        do {
+            try Task.checkCancellation()
+            try await client.removeSongFromPlaylist(
+                videoId: song.videoId,
+                setVideoId: setVideoId,
+                playlistId: viewModel.playlistID
+            )
+            Self.invalidateResponseCaches()
+            viewModel.confirmTrackRemoval(removal)
+            HapticService.success()
+            DiagnosticsLogger.api.info("Removed song '\(song.title)' from playlist")
+        } catch is CancellationError {
+            await viewModel.rollbackTrackRemoval(removal)
+            return
+        } catch {
+            await viewModel.rollbackTrackRemoval(removal)
+            HapticService.error()
+            DiagnosticsLogger.api.error("Failed to remove song from playlist: \(error.localizedDescription)")
+        }
+    }
+
     /// Adds a playlist to the library.
     static func addPlaylistToLibrary(
         _ playlist: Playlist,
@@ -83,18 +118,27 @@ enum LibraryMutationActions {
         client: any YTMusicClientProtocol,
         libraryViewModel: LibraryViewModel?
     ) async throws {
+        let pinnedItemsManager = SidebarPinnedItemsManager.shared
+        let removedPins = pinnedItemsManager.removePlaylistPins(matching: playlist.id)
+        LibraryMutationBroadcaster.shared.playlistRemoved(playlistId: playlist.id)
+
         do {
             try await client.deletePlaylist(playlistId: playlist.id)
             self.invalidateResponseCaches()
             libraryViewModel?.markNeedsReloadOnActivation()
-            LibraryMutationBroadcaster.shared.playlistRemoved(playlistId: playlist.id)
+            DiagnosticsLogger.api.info("Deleted playlist: \(playlist.title)")
 
             // Library browse responses can lag briefly behind a successful deletion.
             try? await Task.sleep(for: .milliseconds(500))
             await LibraryMutationBroadcaster.shared.reconcileRemovedPlaylist(playlistId: playlist.id)
             self.invalidateResponseCaches()
-            DiagnosticsLogger.api.info("Deleted playlist: \(playlist.title)")
         } catch {
+            pinnedItemsManager.restore(removedPins)
+            // Restore the caller's view directly (like the optimistic podcast mutations do) rather
+            // than broadcasting a creation: other Library instances self-heal on their next reload,
+            // and a global playlistCreated here would fabricate the playlist in views that never
+            // saw the optimistic removal.
+            libraryViewModel?.addToLibrary(playlist: playlist)
             DiagnosticsLogger.api.error("Failed to delete playlist: \(error.localizedDescription)")
             throw error
         }

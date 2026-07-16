@@ -140,7 +140,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     private func headerView(_ detail: ArtistDetail) -> some View {
         HStack(alignment: .top, spacing: 20) {
             // Thumbnail
-            CachedAsyncImage(url: detail.thumbnailURL?.highQualityThumbnailURL) { image in
+            CachedAsyncImage(url: detail.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 180, height: 180)) { image in
                 image
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -192,7 +192,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                                 await self.shuffleAllSongs()
                             }
                         } label: {
-                            Label("Shuffle", systemImage: "shuffle")
+                            Label(String(localized: "Shuffle"), systemImage: "shuffle")
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.large)
@@ -207,7 +207,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                         Button {
                             self.playMix(playlistId: mixPlaylistId, startVideoId: nil)
                         } label: {
-                            Label("Mix", systemImage: "play.circle")
+                            Label(String(localized: "Mix"), systemImage: "play.circle")
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.large)
@@ -307,7 +307,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                         songsBrowseId: detail.songsBrowseId,
                         songsParams: detail.songsParams
                     )) {
-                        Text("See all")
+                        Text(String(localized: "See all"))
                             .font(.subheadline)
                     }
                     .buttonStyle(.plain)
@@ -371,7 +371,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                             .lineLimit(1)
                             .frame(width: 150, alignment: .leading)
                     } else {
-                        Text("")
+                        Text(String(localized: ""))
                             .frame(width: 150, alignment: .leading)
                     }
 
@@ -398,7 +398,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                     await self.playerService.playQueue(allSongs, startingAt: startIndex)
                 }
             } label: {
-                Label("Play", systemImage: "play.fill")
+                Label(String(localized: "Play"), systemImage: "play.fill")
             }
 
             if self.authService.hasPersonalAccount {
@@ -421,7 +421,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                 Button {
                     SongActionsHelper.addToLibrary(song, playerService: self.playerService)
                 } label: {
-                    Label("Add to Library", systemImage: "plus.circle")
+                    Label(String(localized: "Add to Library"), systemImage: "plus.circle")
                 }
 
                 Divider()
@@ -450,7 +450,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                     author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
                 )
                 NavigationLink(value: playlist) {
-                    Label("Go to Album", systemImage: "square.stack")
+                    Label(String(localized: "Go to Album"), systemImage: "square.stack")
                 }
             }
         }
@@ -547,7 +547,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     private func albumCard(_ album: Album) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             // Thumbnail
-            CachedAsyncImage(url: album.thumbnailURL?.highQualityThumbnailURL) { image in
+            CachedAsyncImage(url: album.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 140, height: 140)) { image in
                 image
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -582,7 +582,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
 
     private func playlistCard(_ playlist: Playlist) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            CachedAsyncImage(url: playlist.thumbnailURL?.highQualityThumbnailURL) { image in
+            CachedAsyncImage(url: playlist.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 140, height: 140)) { image in
                 image
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -621,7 +621,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
 
     private func artistCard(_ artist: Artist) -> some View {
         VStack(alignment: .center, spacing: 8) {
-            CachedAsyncImage(url: artist.thumbnailURL?.highQualityThumbnailURL) { image in
+            CachedAsyncImage(url: artist.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 140, height: 140)) { image in
                 image
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -701,7 +701,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     private func episodeCard(_ episode: ArtistEpisode) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             ZStack(alignment: .topLeading) {
-                CachedAsyncImage(url: episode.thumbnailURL?.highQualityThumbnailURL) { image in
+                CachedAsyncImage(url: episode.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 220, height: 124)) { image in
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fill)
@@ -781,10 +781,10 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
             NavigationLink(value: playlist) {
                 PlayableArtistCard(playAction: self.quickPlayAction(for: playlist), thumbnailSize: 140) {
                     VStack(alignment: .leading, spacing: 8) {
-                        CachedAsyncImage(url: playlist.thumbnailURL?.highQualityThumbnailURL) { image in
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
+                        CachedAsyncImage(url: playlist.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 140, height: 140)) {
+                          image in image
+                              .resizable()
+                              .aspectRatio(contentMode: .fill)
                         } placeholder: {
                             Rectangle()
                                 .fill(.quaternary)
@@ -828,7 +828,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
 
     private func podcastCard(_ show: PodcastShow) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            CachedAsyncImage(url: show.thumbnailURL?.highQualityThumbnailURL) { image in
+            CachedAsyncImage(url: show.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 140, height: 140)) { image in
                 image
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -871,7 +871,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
 
     private func relatedArtistCard(_ artist: Artist) -> some View {
         VStack(alignment: .center, spacing: 8) {
-            CachedAsyncImage(url: artist.thumbnailURL?.highQualityThumbnailURL) { image in
+            CachedAsyncImage(url: artist.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 120, height: 120)) { image in
                 image
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -945,7 +945,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                 trackCount: nil,
                 author: Artist.inline(name: artistName, namespace: "playlist-author")
             )) {
-                Text("See all").font(.subheadline)
+                Text(String(localized: "See all")).font(.subheadline)
             }
             .buttonStyle(.plain)
             .foregroundStyle(Color.accentColor)
@@ -955,7 +955,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                 sectionTitle: sectionTitle,
                 endpoint: more
             )) {
-                Text("See all").font(.subheadline)
+                Text(String(localized: "See all")).font(.subheadline)
             }
             .buttonStyle(.plain)
             .foregroundStyle(Color.accentColor)

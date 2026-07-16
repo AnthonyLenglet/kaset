@@ -5,7 +5,7 @@ import SwiftUI
 // MARK: - MainWindow
 
 /// Main application window with sidebar navigation and player bar.
-struct MainWindow: View {
+struct MainWindow: View { // swiftlint:disable:this type_body_length
     private struct PresentedWhatsNew: Identifiable {
         let whatsNew: WhatsNew
         let requestedVersion: WhatsNew.Version
@@ -400,7 +400,8 @@ struct MainWindow: View {
                 if self.settings.appSource == .music {
                     Sidebar(
                         selection: self.$navigationSelection,
-                        pinnedSelection: self.$selectedSidebarPinnedItem
+                        pinnedSelection: self.$selectedSidebarPinnedItem,
+                        client: self.client
                     )
                 } else {
                     YouTubeSidebar(selection: self.$youtubeNavigationSelection)
@@ -537,21 +538,33 @@ struct MainWindow: View {
         Group {
             switch item {
             case .home:
-                if let vm = homeViewModel { HomeView(viewModel: vm) }
+                if let vm = homeViewModel {
+                    HomeView(viewModel: vm)
+                }
             case .explore:
-                if let vm = exploreViewModel { ExploreView(viewModel: vm) }
+                if let vm = exploreViewModel {
+                    ExploreView(viewModel: vm)
+                }
             case .search:
                 if let vm = searchViewModel {
                     SearchView(viewModel: vm, focusTrigger: self.searchFocusTrigger)
                 }
             case .charts:
-                if let vm = chartsViewModel { ChartsView(viewModel: vm) }
+                if let vm = chartsViewModel {
+                    ChartsView(viewModel: vm)
+                }
             case .moodsAndGenres:
-                if let vm = moodsAndGenresViewModel { MoodsAndGenresView(viewModel: vm) }
+                if let vm = moodsAndGenresViewModel {
+                    MoodsAndGenresView(viewModel: vm)
+                }
             case .newReleases:
-                if let vm = newReleasesViewModel { NewReleasesView(viewModel: vm) }
+                if let vm = newReleasesViewModel {
+                    NewReleasesView(viewModel: vm)
+                }
             case .podcasts:
-                if let vm = podcastsViewModel { PodcastsView(viewModel: vm) }
+                if let vm = podcastsViewModel {
+                    PodcastsView(viewModel: vm)
+                }
             case .likedMusic:
                 if self.requiresSignIn(item) {
                     self.signInRequiredView(for: item)
@@ -646,6 +659,9 @@ struct MainWindow: View {
             .navigationDestinations(client: client)
         }
         .environment(self.libraryViewModel)
+        .environment(\.onPlaylistDeleted) {
+            self.navigationSelection = .home
+        }
     }
 
     /// View shown while checking initial login status.
