@@ -61,6 +61,8 @@ struct KasetApp: App {
     /// Triggers search field focus when set to true.
     @State private var searchFocusTrigger = false
 
+    @State private var textInputFocusState = TextInputFocusState()
+
     @State private var sidebarNavigationReselectGenerations: [NavigationItem: Int] = [:]
 
     /// Current navigation selection for keyboard navigation.
@@ -213,6 +215,7 @@ struct KasetApp: App {
                 .environment(\.usesLegacyMacOS15UI, self.settings.useLegacyMacOS15UI)
                 .onAppear {
                     DiagnosticsLogger.app.info("KasetApp: App content appeared")
+                    self.textInputFocusState.startMonitoring()
                     // Wire up PlayerService to AppDelegate for dock menu and AppleScript actions
                     // This runs synchronously so AppleScript commands can access playerService immediately
                     self.appDelegate.playerService = self.playerService
@@ -329,12 +332,8 @@ struct KasetApp: App {
                         }
                     }
                 }
-                .keyboardShortcut(.space, modifiers: [])
-                .disabled(
-                    !self.playbackArbiter.routesMediaKeysToVideo
-                        && self.playerService.currentTrack == nil
-                        && self.playerService.pendingPlayVideoId == nil
-                )
+                .keyboardShortcut(self.playbackShortcut(.space, modifiers: []))
+                .disabled(self.shouldDisablePlaybackCommand)
 
                 Divider()
 
@@ -350,8 +349,8 @@ struct KasetApp: App {
                         }
                     }
                 }
-                .keyboardShortcut(.rightArrow, modifiers: .command)
-                .disabled(!self.playbackArbiter.routesMediaKeysToVideo && self.playerService.currentEpisode != nil)
+                .keyboardShortcut(self.playbackShortcut(.rightArrow, modifiers: .command))
+                .disabled(self.shouldDisableTrackNavigationCommands)
 
                 // Previous Track - ⌘←
                 Button(String(localized: "Previous")) {
@@ -363,8 +362,8 @@ struct KasetApp: App {
                         }
                     }
                 }
-                .keyboardShortcut(.leftArrow, modifiers: .command)
-                .disabled(!self.playbackArbiter.routesMediaKeysToVideo && self.playerService.currentEpisode != nil)
+                .keyboardShortcut(self.playbackShortcut(.leftArrow, modifiers: .command))
+                .disabled(self.shouldDisableTrackNavigationCommands)
 
                 Divider()
 
@@ -374,7 +373,7 @@ struct KasetApp: App {
                         await self.playerService.setVolume(min(1.0, self.playerService.volume + 0.1))
                     }
                 }
-                .keyboardShortcut(.upArrow, modifiers: .command)
+                .keyboardShortcut(self.playbackShortcut(.upArrow, modifiers: .command))
 
                 // Volume Down - ⌘↓
                 Button(String(localized: "Volume Down")) {
@@ -382,7 +381,7 @@ struct KasetApp: App {
                         await self.playerService.setVolume(max(0.0, self.playerService.volume - 0.1))
                     }
                 }
-                .keyboardShortcut(.downArrow, modifiers: .command)
+                .keyboardShortcut(self.playbackShortcut(.downArrow, modifiers: .command))
 
                 // Mute
                 Button(self.playerService.isMuted ? "Unmute" : "Mute") {
@@ -637,6 +636,21 @@ struct KasetApp: App {
         } else {
             self.playerService.isPlaying
         }
+    }
+
+    private func playbackShortcut(_ key: KeyEquivalent, modifiers: EventModifiers) -> KeyboardShortcut? {
+        guard !self.textInputFocusState.isFocused else { return nil }
+        return KeyboardShortcut(key, modifiers: modifiers)
+    }
+
+    private var shouldDisablePlaybackCommand: Bool {
+        !self.playbackArbiter.routesMediaKeysToVideo
+            && self.playerService.currentTrack == nil
+            && self.playerService.pendingPlayVideoId == nil
+    }
+
+    private var shouldDisableTrackNavigationCommands: Bool {
+        !self.playbackArbiter.routesMediaKeysToVideo && self.playerService.currentEpisode != nil
     }
 
     /// Label for repeat mode menu item.
