@@ -77,17 +77,15 @@ final class MacOS15FallbackUITests: KasetUITestCase {
             }
         }
 
-        // The playlist title becomes the navigation title in both
-        // implementations.
-        let detailTitle = app.staticTexts["Playlist 0"].firstMatch
-        XCTAssertTrue(waitForElement(detailTitle, timeout: 10), "Playlist detail title should be visible")
-
-        // Both `SimplePlaylistDetailView` and `PlaylistDetailView` expose
-        // Play and Shuffle as labeled buttons.
+        // Proof we routed to a playlist detail: both SimplePlaylistDetailView
+        // and PlaylistDetailView expose Play and Shuffle as labeled buttons.
+        // We do NOT assert on the title text — on macOS 26 the title is only a
+        // navigationTitle (toolbar), which XCUI does not reliably surface as a
+        // content static text, whereas the macOS 15 fallback renders it inline.
         let playButton = app.buttons["Play"].firstMatch
         let shuffleButton = app.buttons["Shuffle"].firstMatch
         XCTAssertTrue(
-            waitForElement(playButton, timeout: 10) || waitForElement(shuffleButton, timeout: 2),
+            waitForElement(playButton, timeout: 10) || waitForElement(shuffleButton, timeout: 5),
             "Playlist detail should expose Play and/or Shuffle controls"
         )
     }
