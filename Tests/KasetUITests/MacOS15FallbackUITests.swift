@@ -61,7 +61,10 @@ final class MacOS15FallbackUITests: KasetUITestCase {
             NSPredicate(format: "label CONTAINS %@", "Playlist 0")
         ).firstMatch
         if firstPlaylistButton.exists {
-            firstPlaylistButton.click()
+            // The card's play button overlays the thumbnail (the card's upper
+            // center), so a click there starts playback instead of navigating.
+            // Click low on the card, over the title, to open the playlist.
+            firstPlaylistButton.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)).click()
         } else if firstPlaylistTitle.isHittable {
             firstPlaylistTitle.click()
         } else {
