@@ -818,10 +818,12 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
             NavigationLink(value: playlist) {
                 PlayableArtistCard(playAction: self.quickPlayAction(for: playlist), thumbnailSize: 140) {
                     VStack(alignment: .leading, spacing: 8) {
-                        CachedAsyncImage(url: playlist.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 140, height: 140)) {
-                          image in image
-                              .resizable()
-                              .aspectRatio(contentMode: .fill)
+                        CachedAsyncImage(
+                          url: playlist.thumbnailURL?.highQualityThumbnailURL,
+                          targetSize: CGSize(width: 140, height: 140)
+                        ) { image in image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
                         } placeholder: {
                             Rectangle()
                                 .fill(.quaternary)
