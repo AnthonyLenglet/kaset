@@ -40,32 +40,9 @@ struct HomeSectionItemCard: View, Equatable {
     /// (and `rank`). If two cards compare equal, the old closures are kept, so
     /// an action that captured section membership or index would go stale.
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
-        guard lhs.item == rhs.item,
-              lhs.rank == rhs.rank,
-              lhs.hasPlayAction == rhs.hasPlayAction
-        else { return false }
-
-        // Song equality compares playback identity. Cards also need the metadata
-        // they render and pass to playback, navigation, and library actions.
-        guard case let .song(lhsSong) = lhs.item,
-              case let .song(rhsSong) = rhs.item
-        else { return true }
-
-        return lhsSong.id == rhsSong.id
-            && lhsSong.title == rhsSong.title
-            && lhsSong.artists == rhsSong.artists
-            && lhsSong.album == rhsSong.album
-            && lhsSong.duration == rhsSong.duration
-            && lhsSong.thumbnailURL == rhsSong.thumbnailURL
-            && lhsSong.isPlayable == rhsSong.isPlayable
-            && lhsSong.hasVideo == rhsSong.hasVideo
-            && lhsSong.musicVideoType == rhsSong.musicVideoType
-            && lhsSong.likeStatus == rhsSong.likeStatus
-            && lhsSong.isInLibrary == rhsSong.isInLibrary
-            && lhsSong.feedbackTokens == rhsSong.feedbackTokens
-            && lhsSong.isExplicit == rhsSong.isExplicit
-            && lhsSong.playlistSetVideoId == rhsSong.playlistSetVideoId
-            && lhsSong.audioTrackVideoId == rhsSong.audioTrackVideoId
+        lhs.item.hasSameCardContent(as: rhs.item)
+            && lhs.rank == rhs.rank
+            && lhs.hasPlayAction == rhs.hasPlayAction
     }
 
     var body: some View {
@@ -334,14 +311,7 @@ struct HomeSectionItemCard: View, Equatable {
     }
 
     private var isVideoSong: Bool {
-        guard case let .song(song) = self.item else { return false }
-
-        if let musicVideoType = song.musicVideoType {
-            return musicVideoType != .atv
-        }
-
-        let subtitle = song.artistsDisplay.lowercased()
-        return subtitle.contains("views") || subtitle.contains("video")
+        self.item.isVideoSong
     }
 }
 
@@ -385,7 +355,7 @@ private struct LiquidGlassPlayIcon: View {
 
 // MARK: - SongCoverPlayOverlay
 
-private struct SongCoverPlayOverlay: View {
+struct SongCoverPlayOverlay: View {
     let size: CGSize
 
     var body: some View {
