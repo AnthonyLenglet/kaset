@@ -22,10 +22,10 @@ shelves, podcast episodes) had no menu at all.
 the item enums. Pages call these instead of assembling entries.
 
 The entries are the union of what any page offered for that type, in the order
-most pages already used. What legitimately differs by page is passed in:
+most pages already used, with one exception: songs and episodes have no Play
+entry, because tapping them already plays. Albums keep Play, since tapping an
+album opens it. What legitimately differs by page is passed in:
 
-- `play`: the host's own play behavior (radio, in-context queue). Nil hides
-  Play, for surfaces where the item is already playing or queued.
 - `navigate`: a `(any Hashable) -> Void` sink for "View…" and "Go to…"
   entries. Nil uses `NavigationLink(value:)`; hosts outside a
   `NavigationStack`, or menus hosted in `NSHostingMenu`, route the value

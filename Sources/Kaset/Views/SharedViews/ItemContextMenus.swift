@@ -46,13 +46,12 @@ extension Album {
 
 // MARK: - SongContextMenu
 
-/// Context menu entries for a song. `play` is the host's own play behavior
-/// (radio, in-context queue, …); nil hides Play. `extras` are appended last
-/// and should start with their own `Divider`.
+/// Context menu entries for a song. There is no Play entry: tapping a song
+/// already plays it. `extras` are appended last and should start with their
+/// own `Divider`.
 struct SongContextMenu<Extras: View>: View {
     let song: Song
     let client: (any YTMusicClientProtocol)?
-    var play: (() -> Void)?
     var navigate: ContextMenuNavigate?
     @ViewBuilder let extras: () -> Extras
 
@@ -62,14 +61,6 @@ struct SongContextMenu<Extras: View>: View {
     @Environment(AuthService.self) private var authService
 
     var body: some View {
-        if let play {
-            Button(action: play) {
-                Label(String(localized: "Play"), systemImage: "play.fill")
-            }
-
-            Divider()
-        }
-
         if self.authService.hasPersonalAccount {
             FavoritesContextMenu.menuItem(for: self.song, manager: self.favoritesManager)
 
@@ -138,10 +129,9 @@ extension SongContextMenu where Extras == EmptyView {
     init(
         song: Song,
         client: (any YTMusicClientProtocol)?,
-        play: (() -> Void)?,
         navigate: ContextMenuNavigate? = nil
     ) {
-        self.init(song: song, client: client, play: play, navigate: navigate) {
+        self.init(song: song, client: client, navigate: navigate) {
             EmptyView()
         }
     }
@@ -312,14 +302,6 @@ struct EpisodeContextMenu: View {
 
     var body: some View {
         let song = self.episode.playbackSong
-        Button {
-            Task { await self.playerService.play(song: song) }
-        } label: {
-            Label(String(localized: "Play"), systemImage: "play.fill")
-        }
-
-        Divider()
-
         AddToQueueContextMenu(song: song, playerService: self.playerService)
 
         Divider()
@@ -351,13 +333,12 @@ struct EpisodeContextMenu: View {
 struct HomeSectionItemContextMenu: View {
     let item: HomeSectionItem
     let client: any YTMusicClientProtocol
-    let playSong: (Song) -> Void
     var navigate: ContextMenuNavigate?
 
     var body: some View {
         switch self.item {
         case let .song(song):
-            SongContextMenu(song: song, client: self.client, play: { self.playSong(song) }, navigate: self.navigate)
+            SongContextMenu(song: song, client: self.client, navigate: self.navigate)
         case let .album(album):
             AlbumContextMenu(album: album, client: self.client, navigate: self.navigate)
         case let .playlist(playlist):
@@ -373,13 +354,12 @@ struct HomeSectionItemContextMenu: View {
 struct SearchResultItemContextMenu: View {
     let item: SearchResultItem
     let client: any YTMusicClientProtocol
-    let playSong: (Song) -> Void
     var navigate: ContextMenuNavigate?
 
     var body: some View {
         switch self.item {
         case let .song(song), let .video(song):
-            SongContextMenu(song: song, client: self.client, play: { self.playSong(song) }, navigate: self.navigate)
+            SongContextMenu(song: song, client: self.client, navigate: self.navigate)
         case let .album(album):
             AlbumContextMenu(album: album, client: self.client, navigate: self.navigate)
         case let .audiobook(audiobook):

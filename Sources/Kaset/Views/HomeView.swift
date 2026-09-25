@@ -165,9 +165,6 @@ struct HomeView: View {
         HomeSectionItemContextMenu(
             item: item,
             client: self.viewModel.client,
-            playSong: { song in
-                Task { await self.playerService.play(song: song) }
-            },
             navigate: { self.navigationPath.append($0) }
         )
     }
