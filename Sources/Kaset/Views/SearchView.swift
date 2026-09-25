@@ -420,6 +420,7 @@ struct SearchView: View {
             SearchResultItemContextMenu(
                 item: item,
                 client: self.viewModel.client,
+                play: { self.handleItemTap(item) },
                 navigate: { self.navigationPath.append($0) }
             )
         }

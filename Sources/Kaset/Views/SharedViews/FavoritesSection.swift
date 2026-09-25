@@ -111,7 +111,7 @@ struct FavoritesSection: View {
 
         switch item.itemType {
         case let .song(song):
-            SongContextMenu(song: song, client: client, navigate: self.onNavigate)
+            SongContextMenu(song: song, client: client, play: { self.handleTap(item) }, navigate: self.onNavigate)
         case let .album(album):
             if let client {
                 AlbumContextMenu(album: album, client: client, navigate: self.onNavigate)

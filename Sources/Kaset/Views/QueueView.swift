@@ -201,6 +201,7 @@ private struct QueueRowView: View {
             SongContextMenu(
                 song: self.song,
                 client: self.playerService.ytMusicClient,
+                play: self.isCurrentTrack ? nil : self.onTap,
                 showsGoToArtist: false,
                 showsGoToAlbum: false
             )

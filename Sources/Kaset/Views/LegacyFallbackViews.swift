@@ -177,7 +177,11 @@ struct SimplePlaylistDetailView: View {
                 .opacity(track.isPlayable ? 1 : 0.5)
                 .contextMenu {
                     if track.isPlayable {
-                        SongContextMenu(song: track, client: self.viewModel.client)
+                        SongContextMenu(
+                            song: track,
+                            client: self.viewModel.client,
+                            play: { Task { await self.playFromIndex(index, tracks: tracks) } }
+                        )
                     }
                 }
                 .onAppear {

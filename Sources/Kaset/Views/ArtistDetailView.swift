@@ -382,7 +382,12 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
             .buttonStyle(.plain)
         }
         .contextMenu {
-            SongContextMenu(song: song, client: self.viewModel.client, showsGoToArtist: false)
+            SongContextMenu(
+                song: song,
+                client: self.viewModel.client,
+                play: { self.playTopSong(song, displayedIndex: index) },
+                showsGoToArtist: false
+            )
         }
     }
 

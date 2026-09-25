@@ -120,7 +120,7 @@ struct PodcastsView: View {
                 self.playEpisode(episode)
             }
             .contextMenu {
-                EpisodeContextMenu(episode: episode)
+                EpisodeContextMenu(episode: episode, play: { self.playEpisode(episode) })
             }
         }
     }
@@ -439,7 +439,11 @@ struct PodcastShowView: View {
                             self.playEpisodeInQueue(at: index)
                         }
                         .contextMenu {
-                            EpisodeContextMenu(episode: episode, showsViewPodcast: false)
+                            EpisodeContextMenu(
+                                episode: episode,
+                                play: { self.playEpisodeInQueue(at: index) },
+                                showsViewPodcast: false
+                            )
                         }
                         Divider()
                     }
@@ -618,7 +622,11 @@ struct AllEpisodesView: View {
                         self.playEpisodeInQueue(at: index)
                     }
                     .contextMenu {
-                        EpisodeContextMenu(episode: episode, showsViewPodcast: false)
+                        EpisodeContextMenu(
+                            episode: episode,
+                            play: { self.playEpisodeInQueue(at: index) },
+                            showsViewPodcast: false
+                        )
                     }
                     Divider()
 

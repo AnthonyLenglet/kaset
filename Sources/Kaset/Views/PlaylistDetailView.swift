@@ -292,21 +292,22 @@ struct PlaylistDetailView: View {
         _ track: Song, index: Int, tracks: [Song], isAlbum: Bool, author: String?,
         fallbackAlbum: Album? = nil
     ) -> some View {
-        PlaylistTrackRow(
+        let play = {
+            self.playTrackInQueue(
+                tracks: tracks, startingAt: index, fallbackArtist: author,
+                fallbackAlbum: fallbackAlbum
+            )
+        }
+        return PlaylistTrackRow(
             track: track,
             index: index,
             isAlbum: isAlbum,
             subtitle: self.trackArtistsDisplay(for: track, fallbackAuthor: author),
             artists: self.trackArtists(for: track, fallbackAuthor: author),
             allowsLikeActions: self.hasPersonalAccount,
-            onPlay: {
-                self.playTrackInQueue(
-                    tracks: tracks, startingAt: index, fallbackArtist: author,
-                    fallbackAlbum: fallbackAlbum
-                )
-            },
+            onPlay: play,
             menu: {
-                self.trackContextMenu(track)
+                self.trackContextMenu(track, play: play)
             }
         )
         .staggeredAppearance(index: min(index, 10))
@@ -397,11 +398,12 @@ struct PlaylistDetailView: View {
     // MARK: - Actions
 
     @ViewBuilder
-    private func trackContextMenu(_ track: Song) -> some View {
+    private func trackContextMenu(_ track: Song, play: @escaping () -> Void) -> some View {
         if track.isPlayable {
             SongContextMenu(
                 song: track,
                 client: self.viewModel.client,
+                play: play,
                 showsGoToAlbum: self.viewModel.playlistDetail?.isAlbum != true
             )
         }

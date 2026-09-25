@@ -137,8 +137,8 @@ struct HomeView: View {
                     .font(.title2)
                     .fontWeight(.semibold)
             },
-            contextMenu: { item, _ in
-                self.contextMenuItems(for: item)
+            contextMenu: { item, index in
+                self.contextMenuItems(for: item, in: section, at: index)
             }
         )
     }
@@ -161,10 +161,11 @@ struct HomeView: View {
         }
     }
 
-    private func contextMenuItems(for item: HomeSectionItem) -> some View {
+    private func contextMenuItems(for item: HomeSectionItem, in section: HomeSection, at index: Int) -> some View {
         HomeSectionItemContextMenu(
             item: item,
             client: self.viewModel.client,
+            play: { self.playItem(item, in: section, at: index) },
             navigate: { self.navigationPath.append($0) }
         )
     }

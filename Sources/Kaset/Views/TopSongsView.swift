@@ -128,7 +128,12 @@ struct TopSongsView: View {
             .buttonStyle(.plain)
         }
         .contextMenu {
-            SongContextMenu(song: song, client: self.viewModel.client, showsGoToArtist: false)
+            SongContextMenu(
+                song: song,
+                client: self.viewModel.client,
+                play: { self.playSongInQueue(startingAt: index) },
+                showsGoToArtist: false
+            )
         }
     }
 

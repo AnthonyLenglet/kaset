@@ -44,6 +44,18 @@ extension Album {
     }
 }
 
+// MARK: - PlayContextMenuButton
+
+private struct PlayContextMenuButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: self.action) {
+            Label(String(localized: "Play"), systemImage: "play.fill")
+        }
+    }
+}
+
 // MARK: - SongLibraryToggle
 
 struct SongLibraryToggle {
@@ -56,6 +68,7 @@ struct SongLibraryToggle {
 struct SongContextMenu: View {
     let song: Song
     let client: (any YTMusicClientProtocol)?
+    var play: (() -> Void)?
     var libraryToggle: SongLibraryToggle?
     var showsGoToArtist = true
     var showsGoToAlbum = true
@@ -67,6 +80,12 @@ struct SongContextMenu: View {
     @Environment(AuthService.self) private var authService
 
     var body: some View {
+        if let play {
+            PlayContextMenuButton(action: play)
+
+            Divider()
+        }
+
         if self.authService.hasPersonalAccount {
             FavoritesContextMenu.menuItem(for: self.song, manager: self.favoritesManager)
 
@@ -164,10 +183,8 @@ struct AlbumContextMenu: View {
 
         Divider()
 
-        Button {
+        PlayContextMenuButton {
             SongActionsHelper.playAlbum(self.album, client: self.client, playerService: self.playerService)
-        } label: {
-            Label(String(localized: "Play"), systemImage: "play.fill")
         }
 
         Button {
@@ -197,6 +214,7 @@ struct PlaylistContextMenu: View {
     let client: any YTMusicClientProtocol
     var navigate: ContextMenuNavigate?
 
+    @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(AuthService.self) private var authService
     @Environment(\.libraryViewModel) private var libraryViewModel: LibraryViewModel?
@@ -210,6 +228,14 @@ struct PlaylistContextMenu: View {
         )
 
         Divider()
+
+        if SongActionsHelper.canQuickPlayPlaylist(self.playlist) {
+            PlayContextMenuButton {
+                SongActionsHelper.playPlaylist(self.playlist, client: self.client, playerService: self.playerService)
+            }
+
+            Divider()
+        }
 
         if self.authService.hasPersonalAccount, self.supportsLibraryToggle {
             let isInLibrary = self.libraryViewModel?.isInLibrary(playlistId: self.playlist.id) ?? false
@@ -304,6 +330,7 @@ struct PodcastShowContextMenu: View {
 
 struct EpisodeContextMenu: View {
     let episode: PodcastEpisode
+    var play: (() -> Void)?
     var showsViewPodcast = true
     var navigate: ContextMenuNavigate?
 
@@ -311,6 +338,12 @@ struct EpisodeContextMenu: View {
 
     var body: some View {
         let song = self.episode.playbackSong
+        if let play {
+            PlayContextMenuButton(action: play)
+
+            Divider()
+        }
+
         AddToQueueContextMenu(song: song, playerService: self.playerService)
 
         Divider()
@@ -342,12 +375,13 @@ struct EpisodeContextMenu: View {
 struct HomeSectionItemContextMenu: View {
     let item: HomeSectionItem
     let client: any YTMusicClientProtocol
+    var play: (() -> Void)?
     var navigate: ContextMenuNavigate?
 
     var body: some View {
         switch self.item {
         case let .song(song):
-            SongContextMenu(song: song, client: self.client, navigate: self.navigate)
+            SongContextMenu(song: song, client: self.client, play: self.play, navigate: self.navigate)
         case let .album(album):
             AlbumContextMenu(album: album, client: self.client, navigate: self.navigate)
         case let .playlist(playlist):
@@ -366,12 +400,13 @@ struct HomeSectionItemContextMenu: View {
 struct SearchResultItemContextMenu: View {
     let item: SearchResultItem
     let client: any YTMusicClientProtocol
+    var play: (() -> Void)?
     var navigate: ContextMenuNavigate?
 
     var body: some View {
         switch self.item {
         case let .song(song), let .video(song):
-            SongContextMenu(song: song, client: self.client, navigate: self.navigate)
+            SongContextMenu(song: song, client: self.client, play: self.play, navigate: self.navigate)
         case let .album(album):
             AlbumContextMenu(album: album, client: self.client, navigate: self.navigate)
         case let .audiobook(audiobook):
@@ -383,7 +418,7 @@ struct SearchResultItemContextMenu: View {
         case let .podcastShow(show):
             PodcastShowContextMenu(show: show, navigate: self.navigate)
         case let .podcastEpisode(episode):
-            EpisodeContextMenu(episode: episode, navigate: self.navigate)
+            EpisodeContextMenu(episode: episode, play: self.play, navigate: self.navigate)
         }
     }
 }

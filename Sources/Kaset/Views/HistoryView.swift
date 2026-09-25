@@ -226,7 +226,11 @@ struct HistoryView: View {
             .buttonStyle(.plain)
         }
         .contextMenu {
-            SongContextMenu(song: song, client: self.viewModel.client)
+            SongContextMenu(
+                song: song,
+                client: self.viewModel.client,
+                play: { Task { await self.playerService.playQueue(allSongs, startingAt: index) } }
+            )
         }
     }
 }

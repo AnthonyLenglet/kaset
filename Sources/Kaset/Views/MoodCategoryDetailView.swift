@@ -87,13 +87,14 @@ struct MoodCategoryDetailView: View {
         switch item {
         case let .song(song):
             // Songs play directly
-            HomeSectionItemCard(item: item) {
+            let play: () -> Void = {
                 Task {
                     await self.playerService.playWithRadio(song: song)
                 }
             }
-            .equatable()
-            .contextMenu { self.contextMenu(for: item) }
+            HomeSectionItemCard(item: item, action: play)
+                .equatable()
+                .contextMenu { self.contextMenu(for: item, play: play) }
         case let .playlist(playlist):
             // Playlists navigate using NavigationLink
             if let parsed = playlist.resolvedMoodCategoryEndpoint {
@@ -136,8 +137,8 @@ struct MoodCategoryDetailView: View {
         }
     }
 
-    private func contextMenu(for item: HomeSectionItem) -> some View {
-        HomeSectionItemContextMenu(item: item, client: self.viewModel.client)
+    private func contextMenu(for item: HomeSectionItem, play: (() -> Void)? = nil) -> some View {
+        HomeSectionItemContextMenu(item: item, client: self.viewModel.client, play: play)
     }
 }
 
