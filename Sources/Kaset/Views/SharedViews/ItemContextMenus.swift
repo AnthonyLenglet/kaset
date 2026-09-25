@@ -345,7 +345,10 @@ struct HomeSectionItemContextMenu: View {
         case let .album(album):
             AlbumContextMenu(album: album, client: self.client, navigate: self.navigate)
         case let .playlist(playlist):
-            PlaylistContextMenu(playlist: playlist, client: self.client, navigate: self.navigate)
+            // Mood and genre tiles arrive as playlists but open a category page.
+            if playlist.resolvedMoodCategoryEndpoint == nil {
+                PlaylistContextMenu(playlist: playlist, client: self.client, navigate: self.navigate)
+            }
         case let .artist(artist):
             ArtistContextMenu(artist: artist, navigate: self.navigate)
         }
