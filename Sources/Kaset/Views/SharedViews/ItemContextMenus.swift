@@ -211,7 +211,7 @@ struct PlaylistContextMenu: View {
 
         Divider()
 
-        if self.authService.hasPersonalAccount {
+        if self.authService.hasPersonalAccount, !LikedMusicPlaylist.matches(id: self.playlist.id) {
             let isInLibrary = self.libraryViewModel?.isInLibrary(playlistId: self.playlist.id) ?? false
             Button {
                 Task {
