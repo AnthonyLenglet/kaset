@@ -99,7 +99,7 @@ struct NewReleasesView: View {
             action: { item, index in
                 self.playItem(item, in: section, at: index)
             },
-            playlistPlayAction: { item in
+            quickPlayAction: { item in
                 self.quickPlayAction(for: item)
             },
             header: {

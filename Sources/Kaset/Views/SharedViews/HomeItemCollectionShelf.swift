@@ -23,7 +23,7 @@ struct HomeItemShelfSection<Header: View, MenuContent: View>: View {
     /// Invoked on click (or Return) with the item and its index in `items`.
     let action: (HomeSectionItem, Int) -> Void
     /// Optional quick-play action for playlists, exposed as an accessibility action.
-    let playlistPlayAction: (HomeSectionItem) -> (() -> Void)?
+    let quickPlayAction: (HomeSectionItem) -> (() -> Void)?
     let header: () -> Header
     let contextMenu: ((HomeSectionItem, Int) -> MenuContent)?
 
@@ -36,7 +36,7 @@ struct HomeItemShelfSection<Header: View, MenuContent: View>: View {
         isChart: Bool = false,
         contentInset: CGFloat = 0,
         action: @escaping (HomeSectionItem, Int) -> Void,
-        playlistPlayAction: @escaping (HomeSectionItem) -> (() -> Void)? = { _ in nil },
+        quickPlayAction: @escaping (HomeSectionItem) -> (() -> Void)? = { _ in nil },
         @ViewBuilder header: @escaping () -> Header,
         @ViewBuilder contextMenu: @escaping (HomeSectionItem, Int) -> MenuContent
     ) {
@@ -45,7 +45,7 @@ struct HomeItemShelfSection<Header: View, MenuContent: View>: View {
         self.isChart = isChart
         self.contentInset = contentInset
         self.action = action
-        self.playlistPlayAction = playlistPlayAction
+        self.quickPlayAction = quickPlayAction
         self.header = header
         self.contextMenu = contextMenu
     }
@@ -63,7 +63,7 @@ struct HomeItemShelfSection<Header: View, MenuContent: View>: View {
                 isChart: self.isChart,
                 contentInset: self.contentInset,
                 action: self.action,
-                playlistPlayAction: self.playlistPlayAction,
+                quickPlayAction: self.quickPlayAction,
                 contextMenu: self.contextMenu.map { menu in { item, index in AnyView(menu(item, index)) } },
                 overflow: self.$overflow,
                 pager: self.pager
@@ -88,7 +88,7 @@ extension HomeItemShelfSection where MenuContent == EmptyView {
         isChart: Bool = false,
         contentInset: CGFloat = 0,
         action: @escaping (HomeSectionItem, Int) -> Void,
-        playlistPlayAction: @escaping (HomeSectionItem) -> (() -> Void)? = { _ in nil },
+        quickPlayAction: @escaping (HomeSectionItem) -> (() -> Void)? = { _ in nil },
         @ViewBuilder header: @escaping () -> Header
     ) {
         self.accessibilityLabel = accessibilityLabel
@@ -96,7 +96,7 @@ extension HomeItemShelfSection where MenuContent == EmptyView {
         self.isChart = isChart
         self.contentInset = contentInset
         self.action = action
-        self.playlistPlayAction = playlistPlayAction
+        self.quickPlayAction = quickPlayAction
         self.header = header
         self.contextMenu = nil
     }
@@ -123,7 +123,7 @@ struct HomeItemCollectionShelf: NSViewRepresentable {
     let isChart: Bool
     let contentInset: CGFloat
     let action: (HomeSectionItem, Int) -> Void
-    let playlistPlayAction: (HomeSectionItem) -> (() -> Void)?
+    let quickPlayAction: (HomeSectionItem) -> (() -> Void)?
     let contextMenu: ((HomeSectionItem, Int) -> AnyView)?
     @Binding var overflow: CarouselShelfOverflow
     let pager: HomeItemShelfPager
@@ -161,7 +161,7 @@ struct HomeItemCollectionShelf: NSViewRepresentable {
             items: self.items,
             isChart: self.isChart,
             action: self.action,
-            playlistPlayAction: self.playlistPlayAction,
+            quickPlayAction: self.quickPlayAction,
             contextMenu: self.contextMenu,
             environment: self.environment
         ))
@@ -182,7 +182,7 @@ final class HomeItemShelfView: NSObject {
         var items: [HomeSectionItem]
         var isChart: Bool
         var action: (HomeSectionItem, Int) -> Void
-        var playlistPlayAction: (HomeSectionItem) -> (() -> Void)?
+        var quickPlayAction: (HomeSectionItem) -> (() -> Void)?
         var contextMenu: ((HomeSectionItem, Int) -> AnyView)?
         var environment: EnvironmentValues
     }
@@ -200,7 +200,7 @@ final class HomeItemShelfView: NSObject {
         items: [],
         isChart: false,
         action: { _, _ in },
-        playlistPlayAction: { _ in nil },
+        quickPlayAction: { _ in nil },
         contextMenu: nil,
         environment: EnvironmentValues()
     )
@@ -367,7 +367,7 @@ final class HomeItemShelfView: NSObject {
                 item: item,
                 rank: self.configuration.isChart ? index + 1 : nil,
                 allowsLikeActions: allowsLikeActions,
-                playlistPlayAction: self.configuration.playlistPlayAction(item),
+                quickPlayAction: self.configuration.quickPlayAction(item),
                 environment: environment
             )
             cell.menuProvider = { [weak self] in

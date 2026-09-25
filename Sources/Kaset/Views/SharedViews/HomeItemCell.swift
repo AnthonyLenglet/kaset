@@ -43,7 +43,7 @@ final class HomeItemCell: NSView {
 
     private(set) var item: HomeSectionItem?
     private var rank: Int?
-    private var playlistPlayAction: (() -> Void)?
+    private var quickPlayAction: (() -> Void)?
     private var environment = EnvironmentValues()
     private var allowsLikeActions = false
     private var isLiked = false
@@ -100,7 +100,7 @@ final class HomeItemCell: NSView {
     /// Frame of the hovered play button, or nil when the card has none. Songs
     /// show a decorative icon instead, since clicking anywhere on them plays.
     var playButtonFrame: NSRect? {
-        guard self.isHovered, self.playlistPlayAction != nil, let item else { return nil }
+        guard self.isHovered, self.quickPlayAction != nil, let item else { return nil }
         switch item {
         case .playlist, .album: return self.playOverlayFrame(width: Self.width(for: item))
         case .song, .artist: return nil
@@ -125,7 +125,7 @@ final class HomeItemCell: NSView {
     }
 
     func performPlayAction() {
-        self.playlistPlayAction?()
+        self.quickPlayAction?()
     }
 
     private var supportsLikeAction: Bool {
@@ -247,13 +247,13 @@ final class HomeItemCell: NSView {
         item: HomeSectionItem,
         rank: Int?,
         allowsLikeActions: Bool,
-        playlistPlayAction: (() -> Void)?,
+        quickPlayAction: (() -> Void)?,
         environment: EnvironmentValues
     ) {
-        let hasSamePlayAction = (self.playlistPlayAction == nil) == (playlistPlayAction == nil)
+        let hasSamePlayAction = (self.quickPlayAction == nil) == (quickPlayAction == nil)
         let directionChanged = self.environment.layoutDirection != environment.layoutDirection
         self.environment = environment
-        self.playlistPlayAction = playlistPlayAction
+        self.quickPlayAction = quickPlayAction
         if directionChanged {
             self.needsLayout = true
             self.needsDisplay = true
@@ -314,9 +314,9 @@ final class HomeItemCell: NSView {
 
     private func updateAccessibilityActions() {
         var actions: [NSAccessibilityCustomAction] = []
-        if let item, self.playlistPlayAction != nil {
+        if let item, self.quickPlayAction != nil {
             actions.append(NSAccessibilityCustomAction(name: String(localized: "Play \(item.title)")) { [weak self] in
-                self?.playlistPlayAction?()
+                self?.quickPlayAction?()
                 return true
             })
         }
