@@ -195,7 +195,6 @@ struct AlbumContextMenu: View {
 struct PlaylistContextMenu: View {
     let playlist: Playlist
     let client: any YTMusicClientProtocol
-    var showsAddToLibrary = true
     var navigate: ContextMenuNavigate?
 
     @Environment(FavoritesManager.self) private var favoritesManager
@@ -212,17 +211,29 @@ struct PlaylistContextMenu: View {
 
         Divider()
 
-        if self.showsAddToLibrary, self.authService.hasPersonalAccount {
+        if self.authService.hasPersonalAccount {
+            let isInLibrary = self.libraryViewModel?.isInLibrary(playlistId: self.playlist.id) ?? false
             Button {
                 Task {
-                    try? await SongActionsHelper.addPlaylistToLibrary(
-                        self.playlist,
-                        client: self.client,
-                        libraryViewModel: self.libraryViewModel
-                    )
+                    if isInLibrary {
+                        try? await SongActionsHelper.removePlaylistFromLibrary(
+                            self.playlist,
+                            client: self.client,
+                            libraryViewModel: self.libraryViewModel
+                        )
+                    } else {
+                        try? await SongActionsHelper.addPlaylistToLibrary(
+                            self.playlist,
+                            client: self.client,
+                            libraryViewModel: self.libraryViewModel
+                        )
+                    }
                 }
             } label: {
-                Label(String(localized: "Add to Library"), systemImage: "plus.circle")
+                Label(
+                    isInLibrary ? String(localized: "Remove from Library") : String(localized: "Add to Library"),
+                    systemImage: isInLibrary ? "minus.circle" : "plus.circle"
+                )
             }
         }
 

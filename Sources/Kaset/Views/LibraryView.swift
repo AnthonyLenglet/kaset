@@ -366,7 +366,6 @@ struct LibraryView: View {
             PlaylistContextMenu(
                 playlist: playlist,
                 client: self.viewModel.client,
-                showsAddToLibrary: false,
                 navigate: { self.navigationPath.append($0) }
             )
 
