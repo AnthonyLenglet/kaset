@@ -242,10 +242,12 @@ struct PlaylistContextMenu: View {
         ShareContextMenu.menuItem(for: self.playlist)
     }
 
+    /// YouTube Music's auto-generated "New Episodes" and "Episodes for Later" playlists.
+    private static let systemPlaylistKeys: Set<String> = ["RDPN", "SE"]
+
     private var supportsLibraryToggle: Bool {
-        // RDPN is YouTube Music's auto-generated "New Episodes" playlist.
         !LikedMusicPlaylist.matches(id: self.playlist.id)
-            && LibraryContentIdentity.playlistKey(for: self.playlist.id) != "RDPN"
+            && !Self.systemPlaylistKeys.contains(LibraryContentIdentity.playlistKey(for: self.playlist.id))
     }
 }
 
