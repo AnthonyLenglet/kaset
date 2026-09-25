@@ -211,7 +211,7 @@ struct PlaylistContextMenu: View {
 
         Divider()
 
-        if self.authService.hasPersonalAccount, !LikedMusicPlaylist.matches(id: self.playlist.id) {
+        if self.authService.hasPersonalAccount, self.supportsLibraryToggle {
             let isInLibrary = self.libraryViewModel?.isInLibrary(playlistId: self.playlist.id) ?? false
             Button {
                 Task {
@@ -240,6 +240,12 @@ struct PlaylistContextMenu: View {
         FavoritesContextMenu.menuItem(for: self.playlist, manager: self.favoritesManager)
 
         ShareContextMenu.menuItem(for: self.playlist)
+    }
+
+    private var supportsLibraryToggle: Bool {
+        // RDPN is YouTube Music's auto-generated "New Episodes" playlist.
+        !LikedMusicPlaylist.matches(id: self.playlist.id)
+            && LibraryContentIdentity.playlistKey(for: self.playlist.id) != "RDPN"
     }
 }
 
