@@ -399,25 +399,21 @@ struct PlaylistDetailView: View {
     @ViewBuilder
     private func trackContextMenu(_ track: Song) -> some View {
         if track.isPlayable {
-            SongContextMenu(song: track, client: self.viewModel.client) {
-                if self.canRemoveTrack(track) {
-                    Divider()
-
-                    self.removeTrackButton(track)
-                }
-            }
-        } else if self.canRemoveTrack(track) {
-            self.removeTrackButton(track)
+            SongContextMenu(song: track, client: self.viewModel.client)
         }
-    }
 
-    private func removeTrackButton(_ track: Song) -> some View {
-        Button(role: .destructive) {
-            Task {
-                await LibraryMutationActions.removeSongFromPlaylist(track, from: self.viewModel, client: self.viewModel.client)
+        if self.canRemoveTrack(track) {
+            if track.isPlayable {
+                Divider()
             }
-        } label: {
-            Label(String(localized: "Remove from Playlist"), systemImage: "minus.circle")
+
+            Button(role: .destructive) {
+                Task {
+                    await LibraryMutationActions.removeSongFromPlaylist(track, from: self.viewModel, client: self.viewModel.client)
+                }
+            } label: {
+                Label(String(localized: "Remove from Playlist"), systemImage: "minus.circle")
+            }
         }
     }
 

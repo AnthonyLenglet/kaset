@@ -368,24 +368,23 @@ struct LibraryView: View {
                 playlist: playlist,
                 client: self.viewModel.client,
                 showsAddToLibrary: false,
-                navigate: { self.navigationPath.append($0) },
-                extras: {
-                    if playlist.canDelete {
-                        Divider()
-
-                        Button(role: .destructive) {
-                            SongActionsHelper.confirmDeletePlaylist(
-                                playlist,
-                                client: self.viewModel.client,
-                                libraryViewModel: self.viewModel,
-                                playerService: self.playerService
-                            )
-                        } label: {
-                            Label(String(localized: "Delete Playlist…"), systemImage: "trash")
-                        }
-                    }
-                }
+                navigate: { self.navigationPath.append($0) }
             )
+
+            if playlist.canDelete {
+                Divider()
+
+                Button(role: .destructive) {
+                    SongActionsHelper.confirmDeletePlaylist(
+                        playlist,
+                        client: self.viewModel.client,
+                        libraryViewModel: self.viewModel,
+                        playerService: self.playerService
+                    )
+                } label: {
+                    Label(String(localized: "Delete Playlist…"), systemImage: "trash")
+                }
+            }
         }
     }
 

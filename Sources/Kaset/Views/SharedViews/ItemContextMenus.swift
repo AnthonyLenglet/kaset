@@ -47,17 +47,27 @@ extension Album {
     }
 }
 
+// MARK: - SongLibraryToggle
+
+/// Replaces Add to Library with an add/remove toggle when the host knows
+/// whether the song is already saved.
+struct SongLibraryToggle {
+    let isInLibrary: Bool
+    let toggle: () -> Void
+}
+
 // MARK: - SongContextMenu
 
 /// Context menu entries for a song. There is no Play entry: tapping a song
-/// already plays it. `showsGoToArtist` is off on the artist's own page.
-/// `extras` are appended last and should start with their own `Divider`.
-struct SongContextMenu<Extras: View>: View {
+/// already plays it. The go-to flags are off where the link would open the
+/// current page or where the host has no way to navigate.
+struct SongContextMenu: View {
     let song: Song
     let client: (any YTMusicClientProtocol)?
+    var libraryToggle: SongLibraryToggle?
     var showsGoToArtist = true
+    var showsGoToAlbum = true
     var navigate: ContextMenuNavigate?
-    @ViewBuilder let extras: () -> Extras
 
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
@@ -76,11 +86,7 @@ struct SongContextMenu<Extras: View>: View {
         StartRadioContextMenu.menuItem(for: self.song, playerService: self.playerService)
 
         if self.authService.hasPersonalAccount {
-            Button {
-                SongActionsHelper.addToLibrary(self.song, playerService: self.playerService)
-            } label: {
-                Label(String(localized: "Add to Library"), systemImage: "plus.circle")
-            }
+            self.libraryButton
         }
 
         if let client {
@@ -96,14 +102,30 @@ struct SongContextMenu<Extras: View>: View {
         AddToQueueContextMenu(song: self.song, playerService: self.playerService)
 
         self.goToItems
+    }
 
-        self.extras()
+    @ViewBuilder
+    private var libraryButton: some View {
+        if let libraryToggle {
+            Button(action: libraryToggle.toggle) {
+                Label(
+                    libraryToggle.isInLibrary ? String(localized: "Remove from Library") : String(localized: "Add to Library"),
+                    systemImage: libraryToggle.isInLibrary ? "minus.circle" : "plus.circle"
+                )
+            }
+        } else {
+            Button {
+                SongActionsHelper.addToLibrary(self.song, playerService: self.playerService)
+            } label: {
+                Label(String(localized: "Add to Library"), systemImage: "plus.circle")
+            }
+        }
     }
 
     @ViewBuilder
     private var goToItems: some View {
         let artist = self.showsGoToArtist ? self.song.artists.first { $0.hasNavigableId } : nil
-        let album = self.song.album.flatMap { $0.hasNavigableId ? $0 : nil }
+        let album = self.showsGoToAlbum ? self.song.album.flatMap { $0.hasNavigableId ? $0 : nil } : nil
 
         if artist != nil || album != nil {
             Divider()
@@ -125,19 +147,6 @@ struct SongContextMenu<Extras: View>: View {
                 systemImage: "square.stack",
                 navigate: self.navigate
             )
-        }
-    }
-}
-
-extension SongContextMenu where Extras == EmptyView {
-    init(
-        song: Song,
-        client: (any YTMusicClientProtocol)?,
-        showsGoToArtist: Bool = true,
-        navigate: ContextMenuNavigate? = nil
-    ) {
-        self.init(song: song, client: client, showsGoToArtist: showsGoToArtist, navigate: navigate) {
-            EmptyView()
         }
     }
 }
@@ -191,13 +200,11 @@ struct AlbumContextMenu: View {
 
 // MARK: - PlaylistContextMenu
 
-/// `extras` are appended last and should start with their own `Divider`.
-struct PlaylistContextMenu<Extras: View>: View {
+struct PlaylistContextMenu: View {
     let playlist: Playlist
     let client: any YTMusicClientProtocol
     var showsAddToLibrary = true
     var navigate: ContextMenuNavigate?
-    @ViewBuilder let extras: () -> Extras
 
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(AuthService.self) private var authService
@@ -230,21 +237,6 @@ struct PlaylistContextMenu<Extras: View>: View {
         FavoritesContextMenu.menuItem(for: self.playlist, manager: self.favoritesManager)
 
         ShareContextMenu.menuItem(for: self.playlist)
-
-        self.extras()
-    }
-}
-
-extension PlaylistContextMenu where Extras == EmptyView {
-    init(
-        playlist: Playlist,
-        client: any YTMusicClientProtocol,
-        showsAddToLibrary: Bool = true,
-        navigate: ContextMenuNavigate? = nil
-    ) {
-        self.init(playlist: playlist, client: client, showsAddToLibrary: showsAddToLibrary, navigate: navigate) {
-            EmptyView()
-        }
     }
 }
 
