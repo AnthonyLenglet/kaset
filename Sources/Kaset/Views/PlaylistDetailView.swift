@@ -11,7 +11,6 @@ struct PlaylistDetailView: View {
     @State var viewModel: PlaylistDetailViewModel
     @Environment(PlayerService.self) var playerService
     @Environment(AuthService.self) private var authService
-    @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SidebarPinnedItemsManager.self) var sidebarPinnedItemsManager: SidebarPinnedItemsManager?
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
     @Environment(\.libraryViewModel) var libraryViewModel: LibraryViewModel?
@@ -307,13 +306,7 @@ struct PlaylistDetailView: View {
                 )
             },
             menu: {
-                self.trackContextMenu(
-                    track,
-                    index: index,
-                    tracks: tracks,
-                    author: author,
-                    fallbackAlbum: fallbackAlbum
-                )
+                self.trackContextMenu(track)
             }
         )
         .staggeredAppearance(index: min(index, 10))
@@ -404,96 +397,27 @@ struct PlaylistDetailView: View {
     // MARK: - Actions
 
     @ViewBuilder
-    private func trackContextMenu(
-        _ track: Song,
-        index: Int,
-        tracks: [Song],
-        author: String?,
-        fallbackAlbum: Album?
-    ) -> some View {
+    private func trackContextMenu(_ track: Song) -> some View {
         if track.isPlayable {
-            Button {
-                self.playTrackInQueue(
-                    tracks: tracks,
-                    startingAt: index,
-                    fallbackArtist: author,
-                    fallbackAlbum: fallbackAlbum
-                )
-            } label: {
-                Label(String(localized: "Play"), systemImage: "play.fill")
-            }
+            SongContextMenu(song: track, client: self.viewModel.client) {
+                if self.canRemoveTrack(track) {
+                    Divider()
 
-            if self.authService.hasPersonalAccount {
-                Divider()
-
-                FavoritesContextMenu.menuItem(for: track, manager: self.favoritesManager)
-
-                Divider()
-
-                LikeDislikeContextMenu(song: track, likeStatusManager: self.likeStatusManager)
-            }
-
-            Divider()
-
-            StartRadioContextMenu.menuItem(for: track, playerService: self.playerService)
-
-            if self.authService.hasPersonalAccount {
-                Divider()
-
-                Button {
-                    SongActionsHelper.addToLibrary(track, playerService: self.playerService)
-                } label: {
-                    Label(String(localized: "Add to Library"), systemImage: "plus.circle")
-                }
-
-                Divider()
-
-                AddToPlaylistContextMenu(song: track, client: self.viewModel.client)
-            }
-
-            Divider()
-
-            ShareContextMenu.menuItem(for: track)
-
-            Divider()
-
-            AddToQueueContextMenu(song: track, playerService: self.playerService)
-
-            Divider()
-
-            if let artist = track.artists.first(where: { $0.hasNavigableId }) {
-                NavigationLink(value: artist) {
-                    Label(String(localized: "Go to Artist"), systemImage: "person")
+                    self.removeTrackButton(track)
                 }
             }
-
-            if let album = track.album, album.hasNavigableId {
-                let playlist = Playlist(
-                    id: album.id,
-                    title: album.title,
-                    description: nil,
-                    thumbnailURL: album.thumbnailURL ?? track.thumbnailURL,
-                    trackCount: album.trackCount,
-                    author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
-                )
-                NavigationLink(value: playlist) {
-                    Label(String(localized: "Go to Album"), systemImage: "square.stack")
-                }
-            }
+        } else if self.canRemoveTrack(track) {
+            self.removeTrackButton(track)
         }
+    }
 
-        if self.canRemoveTrack(track) {
-            if track.isPlayable {
-                Divider()
+    private func removeTrackButton(_ track: Song) -> some View {
+        Button(role: .destructive) {
+            Task {
+                await LibraryMutationActions.removeSongFromPlaylist(track, from: self.viewModel, client: self.viewModel.client)
             }
-
-            Button(role: .destructive) {
-                Task {
-                    await LibraryMutationActions.removeSongFromPlaylist(track, from: self.viewModel, client: self.viewModel.client)
-                }
-            } label: {
-                Label(String(localized: "Remove from Playlist"), systemImage: "minus.circle")
-            }
+        } label: {
+            Label(String(localized: "Remove from Playlist"), systemImage: "minus.circle")
         }
     }
 

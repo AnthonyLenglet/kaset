@@ -93,6 +93,7 @@ struct MoodCategoryDetailView: View {
                 }
             }
             .equatable()
+            .contextMenu { self.contextMenu(for: item) }
         case let .playlist(playlist):
             // Playlists navigate using NavigationLink
             if let parsed = playlist.resolvedMoodCategoryEndpoint {
@@ -110,6 +111,7 @@ struct MoodCategoryDetailView: View {
                     ItemCardContent(item: item)
                 }
                 .buttonStyle(.plain)
+                .contextMenu { self.contextMenu(for: item) }
             }
         case let .album(album):
             let playlist = Playlist(
@@ -124,12 +126,18 @@ struct MoodCategoryDetailView: View {
                 ItemCardContent(item: item)
             }
             .buttonStyle(.plain)
+            .contextMenu { self.contextMenu(for: item) }
         case let .artist(artist):
             NavigationLink(value: artist) {
                 ItemCardContent(item: item)
             }
             .buttonStyle(.plain)
+            .contextMenu { self.contextMenu(for: item) }
         }
+    }
+
+    private func contextMenu(for item: HomeSectionItem) -> some View {
+        HomeSectionItemContextMenu(item: item, client: self.viewModel.client)
     }
 }
 

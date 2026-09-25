@@ -39,7 +39,10 @@ extension Album {
             description: nil,
             thumbnailURL: self.thumbnailURL ?? fallbackThumbnailURL,
             trackCount: self.trackCount,
-            author: Artist.inline(name: self.artistsDisplay, namespace: "album-artist")
+            author: self.artistsDisplay.isEmpty
+                ? nil
+                : Artist.inline(name: self.artistsDisplay, namespace: "album-artist"),
+            libraryTargetId: self.libraryTargetId
         )
     }
 }
