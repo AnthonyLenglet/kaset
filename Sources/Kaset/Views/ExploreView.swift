@@ -107,6 +107,16 @@ struct ExploreView: View {
                 Text(section.title)
                     .font(.title2)
                     .fontWeight(.semibold)
+            },
+            contextMenu: { item, _ in
+                HomeSectionItemContextMenu(
+                    item: item,
+                    client: self.viewModel.client,
+                    playSong: { song in
+                        Task { await self.playerService.play(song: song) }
+                    },
+                    navigate: { self.navigationPath.append($0) }
+                )
             }
         )
     }
