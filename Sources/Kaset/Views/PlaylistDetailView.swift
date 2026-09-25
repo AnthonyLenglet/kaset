@@ -399,7 +399,11 @@ struct PlaylistDetailView: View {
     @ViewBuilder
     private func trackContextMenu(_ track: Song) -> some View {
         if track.isPlayable {
-            SongContextMenu(song: track, client: self.viewModel.client)
+            SongContextMenu(
+                song: track,
+                client: self.viewModel.client,
+                showsGoToAlbum: self.viewModel.playlistDetail?.isAlbum != true
+            )
         }
 
         if self.canRemoveTrack(track) {

@@ -31,8 +31,8 @@ album opens it. What legitimately differs by page is passed in:
   `NavigationStack`, or menus hosted in `NSHostingMenu`, route the value
   themselves.
 - `showsGoToArtist`, `showsGoToAlbum`, `showsViewPodcast`: turned off where
-  the link would open the page already showing (an artist's top songs, a
-  podcast's episodes) or where the host cannot navigate (the queue, the
+  the link would open the page already showing (an artist's top songs, an
+  album's tracks, a podcast's episodes) or where the host cannot navigate (the queue, the
   player bar on some pages).
 - `libraryToggle`: replaces Add to Library with Add/Remove when the host
   knows whether the song is saved (the player bar).

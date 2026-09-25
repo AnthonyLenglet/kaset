@@ -2,9 +2,6 @@ import SwiftUI
 
 // MARK: - ContextMenuNavigate
 
-/// Destination sink for "View…" and "Go to…" entries. Hosts inside a
-/// `NavigationStack` can pass nil to use `NavigationLink`; hosts outside one
-/// route the value themselves.
 typealias ContextMenuNavigate = (any Hashable) -> Void
 
 // MARK: - ContextMenuNavigationButton
@@ -49,8 +46,6 @@ extension Album {
 
 // MARK: - SongLibraryToggle
 
-/// Replaces Add to Library with an add/remove toggle when the host knows
-/// whether the song is already saved.
 struct SongLibraryToggle {
     let isInLibrary: Bool
     let toggle: () -> Void
@@ -58,9 +53,6 @@ struct SongLibraryToggle {
 
 // MARK: - SongContextMenu
 
-/// Context menu entries for a song. There is no Play entry: tapping a song
-/// already plays it. The go-to flags are off where the link would open the
-/// current page or where the host has no way to navigate.
 struct SongContextMenu: View {
     let song: Song
     let client: (any YTMusicClientProtocol)?
@@ -291,7 +283,6 @@ struct PodcastShowContextMenu: View {
 
 // MARK: - EpisodeContextMenu
 
-/// `showsViewPodcast` is off on the podcast's own page.
 struct EpisodeContextMenu: View {
     let episode: PodcastEpisode
     var showsViewPodcast = true

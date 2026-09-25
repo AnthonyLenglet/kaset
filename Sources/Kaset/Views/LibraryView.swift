@@ -50,7 +50,6 @@ enum LibraryFilter: String, CaseIterable, Identifiable {
 struct LibraryView: View {
     @State var viewModel: LibraryViewModel
     @Environment(PlayerService.self) private var playerService
-    @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
     @State private var networkMonitor = NetworkMonitor.shared
 
