@@ -50,11 +50,12 @@ extension Album {
 // MARK: - SongContextMenu
 
 /// Context menu entries for a song. There is no Play entry: tapping a song
-/// already plays it. `extras` are appended last and should start with their
-/// own `Divider`.
+/// already plays it. `showsGoToArtist` is off on the artist's own page.
+/// `extras` are appended last and should start with their own `Divider`.
 struct SongContextMenu<Extras: View>: View {
     let song: Song
     let client: (any YTMusicClientProtocol)?
+    var showsGoToArtist = true
     var navigate: ContextMenuNavigate?
     @ViewBuilder let extras: () -> Extras
 
@@ -101,7 +102,7 @@ struct SongContextMenu<Extras: View>: View {
 
     @ViewBuilder
     private var goToItems: some View {
-        let artist = self.song.artists.first { $0.hasNavigableId }
+        let artist = self.showsGoToArtist ? self.song.artists.first { $0.hasNavigableId } : nil
         let album = self.song.album.flatMap { $0.hasNavigableId ? $0 : nil }
 
         if artist != nil || album != nil {
@@ -132,9 +133,10 @@ extension SongContextMenu where Extras == EmptyView {
     init(
         song: Song,
         client: (any YTMusicClientProtocol)?,
+        showsGoToArtist: Bool = true,
         navigate: ContextMenuNavigate? = nil
     ) {
-        self.init(song: song, client: client, navigate: navigate) {
+        self.init(song: song, client: client, showsGoToArtist: showsGoToArtist, navigate: navigate) {
             EmptyView()
         }
     }
@@ -297,8 +299,10 @@ struct PodcastShowContextMenu: View {
 
 // MARK: - EpisodeContextMenu
 
+/// `showsViewPodcast` is off on the podcast's own page.
 struct EpisodeContextMenu: View {
     let episode: PodcastEpisode
+    var showsViewPodcast = true
     var navigate: ContextMenuNavigate?
 
     @Environment(PlayerService.self) private var playerService
@@ -311,7 +315,7 @@ struct EpisodeContextMenu: View {
 
         ShareContextMenu.menuItem(for: song)
 
-        if let showBrowseId = self.episode.showBrowseId, let showTitle = self.episode.showTitle {
+        if self.showsViewPodcast, let showBrowseId = self.episode.showBrowseId, let showTitle = self.episode.showTitle {
             Divider()
 
             ContextMenuNavigationButton(

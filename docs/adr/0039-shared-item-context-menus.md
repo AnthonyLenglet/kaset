@@ -32,6 +32,9 @@ album opens it. What legitimately differs by page is passed in:
   themselves.
 - `extras`: page-only entries appended last, such as Remove from Playlist,
   Remove from Queue, Delete Playlist, or Favorites reordering.
+- `showsGoToArtist` / `showsViewPodcast`: turned off where the link would
+  point at the page already open (an artist's top songs, a podcast's
+  episodes).
 
 ## Consequences
 
