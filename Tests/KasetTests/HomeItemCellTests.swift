@@ -118,6 +118,42 @@ struct HomeItemCellTests {
         #expect(cell.accessibilityCustomActions()?.isEmpty == true)
     }
 
+    @Test("Hovered playlists and albums with a play action expose a centered play button")
+    func playButtonFrame() {
+        let items: [HomeSectionItem] = [
+            .playlist(Playlist(id: "playlist", title: "Playlist", description: nil, thumbnailURL: nil, trackCount: nil)),
+            .album(Album(id: "album", title: "Album", artists: nil, thumbnailURL: nil, year: nil, trackCount: nil)),
+        ]
+        for item in items {
+            var plays = 0
+            let cell = HomeItemCell(frame: .zero)
+            cell.configure(item: item, rank: nil, allowsLikeActions: false, playlistPlayAction: { plays += 1 }, environment: EnvironmentValues())
+            #expect(cell.playButtonFrame == nil)
+
+            cell.setHovered(true, animated: false)
+            let frame = cell.playButtonFrame
+            #expect(frame?.midX == HomeItemCell.width(for: item) / 2)
+            #expect(frame?.midY == HomeItemCell.artworkHeight / 2)
+            #expect(cell.subviews.count == 1)
+
+            cell.performPlayAction()
+            #expect(plays == 1)
+
+            cell.configure(item: item, rank: nil, allowsLikeActions: false, playlistPlayAction: nil, environment: EnvironmentValues())
+            #expect(cell.playButtonFrame == nil)
+            #expect(cell.subviews.isEmpty)
+        }
+    }
+
+    @Test("Songs keep a decorative play icon without a play button")
+    func songHasNoPlayButton() {
+        let cell = HomeItemCell(frame: .zero)
+        cell.configure(item: .song(Self.song()), rank: nil, allowsLikeActions: false, playlistPlayAction: {}, environment: EnvironmentValues())
+        cell.setHovered(true, animated: false)
+        #expect(cell.playButtonFrame == nil)
+        #expect(cell.subviews.count == 1)
+    }
+
     @Test("Moving hover between cards releases each inactive play host")
     func releasesPlayOverlayAfterHover() {
         let cells = (0 ..< 3).map { index in

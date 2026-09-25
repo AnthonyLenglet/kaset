@@ -222,11 +222,11 @@ final class HomeItemShelfView: NSObject {
         self.documentView.hoverHandler = { [weak self] point in
             self?.updateHover(at: point)
         }
-        self.documentView.clickHandler = { [weak self] index, isLikeControl in
-            if isLikeControl {
-                self?.cells[index].toggleLike()
-            } else {
-                self?.activate(index)
+        self.documentView.clickHandler = { [weak self] target in
+            switch target {
+            case let .card(index): self?.activate(index)
+            case let .likeControl(index): self?.cells[index].toggleLike()
+            case let .playButton(index): self?.cells[index].performPlayAction()
             }
         }
 
@@ -539,16 +539,16 @@ private final class ObservationTick {
 @MainActor
 private final class HomeItemShelfDocumentView: NSView {
     var hoverHandler: ((NSPoint?) -> Void)?
-    /// `(index, isLikeControl)`.
-    var clickHandler: ((Int, Bool) -> Void)?
+    var clickHandler: ((PressTarget) -> Void)?
     var cells: [HomeItemCell] = []
     private var trackingArea: NSTrackingArea?
     private var scrollsPageForGesture: Bool?
     private var pendingScrollStartEvents: [NSEvent] = []
 
-    private enum PressTarget: Equatable {
+    enum PressTarget: Equatable {
         case card(Int)
         case likeControl(Int)
+        case playButton(Int)
     }
 
     private var pressTarget: PressTarget?
@@ -654,12 +654,16 @@ private final class HomeItemShelfDocumentView: NSView {
         }
     }
 
-    /// What is under `point`: the card, its like control, or nothing.
+    /// What is under `point`: the card, one of its controls, or nothing.
     private func target(at point: NSPoint) -> PressTarget? {
         guard let index = self.cellIndex(at: point) else { return nil }
         let cell = self.cells[index]
-        if let likeFrame = cell.likeButtonFrame, likeFrame.contains(self.convert(point, to: cell)) {
+        let cellPoint = self.convert(point, to: cell)
+        if let likeFrame = cell.likeButtonFrame, likeFrame.contains(cellPoint) {
             return .likeControl(index)
+        }
+        if let playFrame = cell.playButtonFrame, playFrame.contains(cellPoint) {
+            return .playButton(index)
         }
         return .card(index)
     }
@@ -669,14 +673,11 @@ private final class HomeItemShelfDocumentView: NSView {
     }
 
     /// A press only dispatches if it is released on the same target it began
-    /// on, so dragging off the like control (or onto it) cancels.
+    /// on, so dragging off a control (or onto it) cancels.
     override func mouseUp(with event: NSEvent) {
         defer { self.pressTarget = nil }
         let point = self.convert(event.locationInWindow, from: nil)
         guard event.clickCount == 1, let pressed = self.pressTarget, self.target(at: point) == pressed else { return }
-        switch pressed {
-        case let .card(index): self.clickHandler?(index, false)
-        case let .likeControl(index): self.clickHandler?(index, true)
-        }
+        self.clickHandler?(pressed)
     }
 }
