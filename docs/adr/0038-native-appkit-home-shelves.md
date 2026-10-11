@@ -23,14 +23,19 @@ while attached — scales with the number of `NSView`s in the subtree.
 ## Decision
 
 Shelves of `HomeSectionItem` cards render through `HomeItemShelfSection`
-(SwiftUI: header, glass paging arrows) → `HomeItemCollectionShelf`
-(`NSViewRepresentable`) → `HomeItemShelfView` (a plain horizontal
-`NSScrollView` driven by a controller object) whose document view owns one
-`HomeItemCell` per item for the shelf's lifetime.
+(SwiftUI: header) → `HomeItemCollectionShelf`
+(`NSViewRepresentable`) → `HomeItemShelfView` (its coordinator: a controller
+that owns a plain horizontal `NSScrollView` and hosts it, with native paging
+arrows, in a `HomeItemShelfContainerView`). The scroll view's document view
+owns one `HomeItemCell` per item for the shelf's lifetime.
 
 `HomeItemCell` is a single layer-backed `NSView`. Artwork and its hover lift
-are sublayers; title, subtitle and explicit badge are drawn into the view's
-bitmap once per configure; the like control and chart rank are image layers.
+are sublayers; title, subtitle and explicit badge are a cached bitmap on a
+sublayer (the view has no backing store: `wantsUpdateLayer`); the like control
+and chart rank are image layers.
+The paging arrows are native too: an `NSGlassEffectView` per arrow (an
+`NSVisualEffectView` on the macOS 15 path) in a container around the shelf's
+scroll view, and the representable reports its size through `sizeThatFits`.
 SwiftUI is used only for the hovered card's glass play overlay and for the
 context menu (`NSHostingMenu` over the existing SwiftUI menu items), so the
 existing menu logic, `SongLikeStatusManager`, and `ImageCache` are shared
@@ -48,6 +53,22 @@ Measured, and therefore rejected:
   cheaper.
 - Multi-view cells (text fields, buttons, badge views) cost ~7 dropped frames
   per pass through AppKit's attach/detach and constraint passes.
+- Drawing the card text in `draw(_:)`: AppKit redisplays a view's backing
+  store each time SwiftUI re-attaches the shelf, so every card re-typeset its
+  title and subtitle at the viewport edge. Moving the text to a cached bitmap
+  layer halved dropped frames (constant 2000 pt/s scroll, ~29 → ~14 per pass).
+- A SwiftUI `.onHover` per shelf for the paging controls' prominence: SwiftUI
+  re-hit-tests hover responders on every scroll frame. The shelf's own AppKit
+  tracking area reports hover instead (~14 → ~8 dropped frames per pass).
+- Letting SwiftUI size the shelf: without `sizeThatFits`, every realized shelf
+  went through `intrinsicLayoutTraits` (Auto Layout measurement plus a window
+  constraint pass). Reporting the size directly cut dropped frames ~35% at
+  4000 pt/s.
+- SwiftUI `.glassEffect()` paging arrows: SwiftUI re-resolves each glass
+  element's context on every frame it moves, which was most of the remaining
+  scroll cost (4000 pt/s: ~5–8 dropped frames per pass with SwiftUI glass, ~1
+  with native glass, ~0 with no arrows). The shadow and hover animations
+  measured as free.
 
 ## Consequences
 
@@ -59,5 +80,14 @@ Measured, and therefore rejected:
   Keyboard Access.
 - New card chrome must stay layer-based; adding `NSView`s per card brings the
   re-attach cost back.
+- The paging arrows (`HomeItemShelfArrowView`) are reimplemented natively and
+  must be kept in step with `CarouselShelfPagingControls` (they share its
+  labels): size and inset, resting/prominent opacity, scale and shadow, and
+  Return/Space paging under Full Keyboard Access. They handle press, keyboard
+  and accessibility themselves; an `NSButton` would still need a subclass for
+  Space taking precedence over Play/Pause, the circular hit area and focus
+  ring, and focus-driven prominence. Known differences: no interactive-glass
+  hover highlight, and the macOS 15 path uses the `.popover` visual-effect
+  material where SwiftUI uses `.ultraThinMaterial`.
 - `CarouselShelfSection`/`CarouselShelf` remain for non-`HomeSectionItem`
   shelves (Favorites, Artist detail, Podcasts, YouTube).
