@@ -20,7 +20,6 @@
 "Add to Favorites" = "加入收藏";
 "Add to Library" = "加入音樂庫";
 "Add to Playlist" = "加入播放清單";
-"Copy Link" = "拷貝連結";
 "Add to Queue" = "加入待播清單";
 "Add to Sidebar" = "加入側邊欄";
 "Add to Watch Later" = "加入稍後觀看";
@@ -111,6 +110,7 @@
 "Continue" = "繼續";
 "Continue Watching" = "繼續觀看";
 "Control playback with your keyboard" = "使用鍵盤控制播放";
+"Copy Link" = "拷貝連結";
 "Could not create AI session" = "無法建立 AI 工作階段";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "無法擷取 Kaset 的音訊（狀態 %d）。請在系統設定中檢查「螢幕與系統音訊錄製」權限。";
 "Couldn't configure the audio unit (%lld)." = "無法設定音訊單元（%lld）。";

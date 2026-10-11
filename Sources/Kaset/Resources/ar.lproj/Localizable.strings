@@ -19,7 +19,6 @@
 "Add to Favorites" = "إضافة إلى المفضلة";
 "Add to Library" = "إضافة إلى المكتبة";
 "Add to Playlist" = "إضافة إلى قائمة تشغيل";
-"Copy Link" = "نسخ الرابط";
 "Add to Queue" = "إضافة إلى قائمة الانتظار";
 "Add to Sidebar" = "إضافة إلى الشريط الجانبي";
 "Add to Watch Later" = "إضافة إلى المشاهدة لاحقًا";
@@ -104,6 +103,7 @@
 "Continue" = "متابعة";
 "Continue Watching" = "متابعة المشاهدة";
 "Control playback with your keyboard" = "تحكم في التشغيل باستخدام لوحة المفاتيح";
+"Copy Link" = "نسخ الرابط";
 "Could not create AI session" = "تعذّر إنشاء جلسة الذكاء الاصطناعي";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "تعذر التقاط صوت Kaset (الحالة %d). تحقق من إذن تسجيل الشاشة وصوت النظام في إعدادات النظام.";
 "Couldn't configure the audio unit (%lld)." = "تعذر تكوين وحدة الصوت (%lld).";

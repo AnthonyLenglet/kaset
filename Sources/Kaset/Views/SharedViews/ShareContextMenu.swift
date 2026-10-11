@@ -7,20 +7,14 @@ import SwiftUI
 /// Uses native macOS sharing services for proper popup positioning in context menus.
 @MainActor
 enum ShareContextMenu {
-    /// `NSSharingServicePicker.delegate` is weak.
-    private static var activePickerDelegate: CopyLinkSharingPickerDelegate?
+    /// Held here because `NSSharingServicePicker.delegate` is weak.
+    private static let pickerDelegate = CopyLinkSharingPickerDelegate()
 
     /// Shows the share picker at the current mouse location.
     /// Exposed for AppKit context menus (e.g. queue side panel) that cannot use the SwiftUI menu item.
     static func showSharePicker(for url: URL) {
         let picker = NSSharingServicePicker(items: [url])
-        let delegate = CopyLinkSharingPickerDelegate(url: url) { finished in
-            if Self.activePickerDelegate === finished {
-                Self.activePickerDelegate = nil
-            }
-        }
-        Self.activePickerDelegate = delegate
-        picker.delegate = delegate
+        picker.delegate = Self.pickerDelegate
 
         // Get the current mouse location in screen coordinates
         let mouseLocation = NSEvent.mouseLocation
@@ -170,36 +164,34 @@ enum ShareContextMenu {
 
 // MARK: - CopyLinkSharingPickerDelegate
 
-@MainActor
-private final class CopyLinkSharingPickerDelegate: NSObject, @preconcurrency NSSharingServicePickerDelegate {
-    private let url: URL
-    private let onFinish: (CopyLinkSharingPickerDelegate) -> Void
-
-    init(url: URL, onFinish: @escaping (CopyLinkSharingPickerDelegate) -> Void) {
-        self.url = url
-        self.onFinish = onFinish
-    }
-
+/// Puts Copy Link first in the share picker, since macOS does not always offer a copy action for URLs.
+/// Stateless and nonisolated: the link comes from the picker's items, so one instance serves every picker.
+final class CopyLinkSharingPickerDelegate: NSObject, NSSharingServicePickerDelegate {
     func sharingServicePicker(
         _: NSSharingServicePicker,
-        sharingServicesForItems _: [Any],
+        sharingServicesForItems items: [Any],
         proposedSharingServices proposedServices: [NSSharingService]
     ) -> [NSSharingService] {
-        let link = self.url.absoluteString
+        let title = String(localized: "Copy Link")
+        guard let url = items.lazy.compactMap({ $0 as? URL }).first,
+              !proposedServices.contains(where: { $0.title.localizedCaseInsensitiveCompare(title) == .orderedSame })
+        else { return proposedServices }
+
         let copyLink = NSSharingService(
-            title: String(localized: "Copy Link"),
-            image: NSImage(systemSymbolName: "link", accessibilityDescription: nil) ?? NSImage(),
+            title: title,
+            image: NSImage(systemSymbolName: "link", accessibilityDescription: title) ?? NSImage(),
             alternateImage: nil
         ) {
-            let pasteboard = NSPasteboard.general
-            pasteboard.clearContents()
-            pasteboard.setString(link, forType: .string)
-            pasteboard.setString(link, forType: .URL)
+            Self.copy(url, to: .general)
         }
         return [copyLink] + proposedServices
     }
 
-    func sharingServicePicker(_: NSSharingServicePicker, didChoose _: NSSharingService?) {
-        self.onFinish(self)
+    /// Writes the link as both a URL and plain text.
+    static func copy(_ url: URL, to pasteboard: NSPasteboard) {
+        let link = url.absoluteString
+        pasteboard.clearContents()
+        pasteboard.setString(link, forType: .string)
+        pasteboard.setString(link, forType: .URL)
     }
 }

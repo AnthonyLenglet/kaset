@@ -19,7 +19,6 @@
 "Add to Favorites" = "Aggiungi ai preferiti";
 "Add to Library" = "Aggiungi alla libreria";
 "Add to Playlist" = "Aggiungi alla playlist";
-"Copy Link" = "Copia link";
 "Add to Queue" = "Aggiungi alla coda";
 "Add to Sidebar" = "Aggiungi alla barra laterale";
 "Add to Watch Later" = "Aggiungi a Guarda più tardi";
@@ -104,6 +103,7 @@
 "Continue" = "Continua";
 "Continue Watching" = "Continua a guardare";
 "Control playback with your keyboard" = "Controlla la riproduzione con la tastiera";
+"Copy Link" = "Copia link";
 "Could not create AI session" = "Impossibile creare la sessione AI";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Impossibile acquisire l'audio di Kaset (stato %d). Controlla il permesso Registrazione Schermo e Audio di Sistema nelle Impostazioni di Sistema.";
 "Couldn't configure the audio unit (%lld)." = "Impossibile configurare l'unità audio (%lld).";

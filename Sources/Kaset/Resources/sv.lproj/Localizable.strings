@@ -19,7 +19,6 @@
 "Add to Favorites" = "Lägg till i favoriter";
 "Add to Library" = "Lägg till i biblioteket";
 "Add to Playlist" = "Lägg till i spellista";
-"Copy Link" = "Kopiera länk";
 "Add to Queue" = "Lägg till i kön";
 "Add to Sidebar" = "Lägg till i sidofältet";
 "Add to Watch Later" = "Lägg till i Titta senare";
@@ -104,6 +103,7 @@
 "Continue" = "Fortsätt";
 "Continue Watching" = "Fortsätt titta";
 "Control playback with your keyboard" = "Styr uppspelningen med tangentbordet";
+"Copy Link" = "Kopiera länk";
 "Could not create AI session" = "Kunde inte skapa AI-session";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Det gick inte att fånga Kasets ljud (status %d). Kontrollera behörigheten för skärm- och systemljudinspelning i Systeminställningar.";
 "Couldn't configure the audio unit (%lld)." = "Kunde inte konfigurera ljudenheten (%lld).";

@@ -16,7 +16,6 @@
 "Add to Favorites" = "お気に入りに追加";
 "Add to Library" = "ライブラリに追加";
 "Add to Playlist" = "プレイリストに追加";
-"Copy Link" = "リンクをコピー";
 "Add to Queue" = "キューに追加";
 "Add to Sidebar" = "サイドバーに追加";
 "Add to Watch Later" = "後で見るに追加";
@@ -108,6 +107,7 @@
 "Continue" = "続ける";
 "Continue Watching" = "続きから視聴";
 "Control playback with your keyboard" = "キーボードで再生を操作";
+"Copy Link" = "リンクをコピー";
 "Could not create AI session" = "AI セッションを作成できませんでした";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Kaset のオーディオをキャプチャできませんでした（ステータス %d）。システム設定の「画面とシステムオーディオの録音」権限を確認してください。";
 "Couldn't configure the audio unit (%lld)." = "オーディオユニットを構成できませんでした（%lld）。";
